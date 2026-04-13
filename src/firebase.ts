@@ -5,45 +5,17 @@ import { getStorage } from 'firebase/storage';
 import { getFunctions } from 'firebase/functions';
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyA4MAZEtGB5Xz1ySn6Mm5RCJhjUQi8OTcs',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'sosyal-490917.firebaseapp.com',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'sosyal-490917',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'sosyal-490917.firebasestorage.app',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '644583868772',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:644583868772:web:218ded8206d1bb9ba65271',
 };
 
-const requiredKeys = [
-  'VITE_FIREBASE_API_KEY',
-  'VITE_FIREBASE_AUTH_DOMAIN',
-  'VITE_FIREBASE_PROJECT_ID',
-  'VITE_FIREBASE_STORAGE_BUCKET',
-  'VITE_FIREBASE_MESSAGING_SENDER_ID',
-  'VITE_FIREBASE_APP_ID',
-] as const;
+export const missingFirebaseEnvKeys: string[] = [];
 
-export const missingFirebaseEnvKeys = requiredKeys.filter((key) => {
-  const value = import.meta.env[key];
-  return typeof value !== 'string' || value.trim().length === 0;
-});
-
-const fallbackConfig = {
-  apiKey: 'demo-key',
-  authDomain: 'demo.firebaseapp.com',
-  projectId: 'demo-project',
-  storageBucket: 'demo-project.appspot.com',
-  messagingSenderId: '000000000000',
-  appId: '1:000000000000:web:demo',
-};
-
-if (missingFirebaseEnvKeys.length > 0) {
-  console.error(
-    `[Firebase Config] Missing env keys: ${missingFirebaseEnvKeys.join(', ')}. ` +
-      'App is running with fallback config to avoid runtime crash; Firebase operations will fail until env keys are set.'
-  );
-}
-
-const app = initializeApp(missingFirebaseEnvKeys.length > 0 ? fallbackConfig : firebaseConfig);
+const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
