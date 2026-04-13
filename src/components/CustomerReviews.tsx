@@ -4,9 +4,9 @@ import { Link } from "react-router-dom";
 
 const reviews = [
   { name: "ggBetaShark6524", rating: 5, title: "Harika platform", text: "Play store parasıyla ödeme yapılabilsin lütfen. Çok iyi bir site!", date: "2 gün önce" },
-  { name: "Midas27", rating: 5, title: "Mükemmel deneyim", text: "İtemSatış, güvenilir ve hızlı bir alışveriş deneyimi sunuyor. Ürün çeşitliliği ve müşteri odaklı yaklaşımı ile her zaman kaliteli hizmet.", date: "3 gün önce" },
-  { name: "Sitetampo", rating: 5, title: "İTEMSATIS GİBİSİ YÜZ YILDA BİR GELİR", text: "Gerçekten hem alıcılara hem de satıcılara gerekli destek kusursuz sağlanıyor, her ikisine de aynı değer veriliyor.", date: "5 gün önce" },
-  { name: "elwf3", rating: 4, title: "Güvenli ve kaliteli", text: "SenTinusStore'dan alışveriş yaptım hızlı iletişime geçiliyor gayet güvenilir bir mağaza ve itemsatış da güvenilir.", date: "1 hafta önce" },
+  { name: "Midas27", rating: 5, title: "Mükemmel deneyim", text: "itemTR, güvenilir ve hızlı bir alışveriş deneyimi sunuyor. Ürün çeşitliliği ve müşteri odaklı yaklaşımı ile her zaman kaliteli hizmet.", date: "3 gün önce" },
+  { name: "Sitetampo", rating: 5, title: "ITEMTR GİBİSİ YÜZ YILDA BİR GELİR", text: "Gerçekten hem alıcılara hem de satıcılara gerekli destek kusursuz sağlanıyor, her ikisine de aynı değer veriliyor.", date: "5 gün önce" },
+  { name: "elwf3", rating: 4, title: "Güvenli ve kaliteli", text: "SenTinusStore'dan alışveriş yaptım hızlı iletişime geçiliyor gayet güvenilir bir mağaza ve itemTR da güvenilir.", date: "1 hafta önce" },
   { name: "RysieShop", rating: 4, title: "Genel olarak iyi", text: "Site genel olarak güzel, canlı destek biraz daha ilgili olabilir ama genel memnuniyet yüksek.", date: "1 hafta önce" },
   { name: "heniske0606", rating: 5, title: "Çok güvenilir", text: "Çok güvenilir sitedir, şiddetle tavsiye ederim herkese. Alışverişlerim her zaman sorunsuz oldu.", date: "2 hafta önce" },
 ];
@@ -21,7 +21,7 @@ const CustomerReviews = () => {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-1 h-6 bg-accent rounded-full" />
-          <h2 className="text-lg font-bold text-foreground">İtemSatış Müşteri Yorumları</h2>
+          <h2 className="text-lg font-bold text-foreground">itemTR Müşteri Yorumları</h2>
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-accent/10">
             <Star className="h-4 w-4 text-accent fill-accent" />
             <span className="text-sm font-bold text-accent">4.7</span>

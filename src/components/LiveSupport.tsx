@@ -5,7 +5,7 @@ const LiveSupport = () => {
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([
-    { from: "support", text: "Merhaba! 👋 İtemSatış destek ekibine hoş geldiniz. Size nasıl yardımcı olabiliriz?", time: "Şimdi" },
+    { from: "support", text: "Merhaba! 👋 itemTR destek ekibine hoş geldiniz. Size nasıl yardımcı olabiliriz?", time: "Şimdi" },
   ]);
 
   const sendMessage = () => {

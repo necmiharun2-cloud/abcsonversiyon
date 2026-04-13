@@ -236,7 +236,7 @@ export default function StreamerProfile() {
           <div className="pt-16 sm:pt-20 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold text-white">{streamer.name}</h1>
-              <p className="text-purple-400 text-sm mt-1">İtemSatış Yayıncısı</p>
+              <p className="text-purple-400 text-sm mt-1">itemTR Yayıncısı</p>
               <p className="text-gray-400 text-sm mt-2 max-w-md">{streamer.bio}</p>
 
               {/* Platform Links */}

@@ -5,7 +5,7 @@ import { useSiteSettings } from '../hooks/useSiteSettings';
 export default function TopBar() {
   const settings = useSiteSettings();
   
-  // Rotating featured products like itemsatis.com
+  // Rotating featured products like itemTR
   const featuredProducts = [
     { name: 'Roblox Robux', description: 'Sınırsız Eğlence, En Uygun Fiyatlı Robux', path: '/roblox' },
     { name: 'Valorant VP', description: 'Hızlı Teslimat, Güvenli Alışveriş', path: '/ilan-pazari?q=Valorant' },

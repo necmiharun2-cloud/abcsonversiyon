@@ -128,6 +128,7 @@ export default function AdminAutomation() {
     { key: 'campaignAutoActivate', label: 'Kampanya Oto Aktif/Pasif', desc: 'Tarih bazlı kupon yönetimi' },
     { key: 'withdrawalAutoQueue', label: 'Çekim Oto Kuyruğu', desc: `Koşulları sağlayanları oto kuyruğa al (max ${config.withdrawalAutoMaxAmount}₺)` },
     { key: 'criticalAlerts', label: 'Kritik Olay Alarmları', desc: 'Admin panele anlık uyarılar gönder' },
+    { key: 'messageProfanityCheck', label: 'Mesaj Küfür/Spam Taraması', desc: 'Sohbet mesajlarında yasaklı kelime ve küfür tara' },
   ];
 
   const unresolvedAlerts = alerts.filter(a => !a.resolved);

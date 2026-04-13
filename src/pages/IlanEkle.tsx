@@ -511,7 +511,7 @@ export default function IlanEkle() {
                     </div>
                   )}
                   
-                  {/* Category Groups - Compact Grid like itemsatis.com */}
+                  {/* Category Groups - Compact Grid */}
                   <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
                     {CATEGORY_GROUPS.map(group => (
                       <div key={group.name} className="mb-4 last:mb-0">

@@ -9,8 +9,8 @@ const InstagramWidget = () => {
             <Instagram className="h-7 w-7 text-white" />
           </div>
           <div>
-            <p className="font-bold text-foreground text-lg">İtemSatış Instagram Hesabı</p>
-            <p className="text-xs text-muted-foreground">@itemsatis • 25K+ Takipçi</p>
+            <p className="font-bold text-foreground text-lg">itemTR Instagram Hesabı</p>
+            <p className="text-xs text-muted-foreground">@itemtr • 25K+ Takipçi</p>
           </div>
         </div>
         <p className="text-sm text-muted-foreground flex-1 text-center sm:text-left">

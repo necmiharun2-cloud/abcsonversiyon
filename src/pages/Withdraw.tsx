@@ -308,19 +308,7 @@ export default function Withdraw() {
           <li>Banka hesabınıza hafta içi 09:30 - 15:00 arasında oluşturduğunuz tüm talepler gün sonuna kadar hesabınıza yatırılır.</li>
           <li>Banka hesabınıza hafta sonu 10:30 - 15:00 arasında oluşturduğunuz tüm talepler gün sonuna kadar hesabınıza yatırılır.</li>
           <li>Yukarıda belirtilen saatler dışında çekim yaptıysanız talebiniz ancak sonraki gün işleme alınabilir.</li>
-          <li>İşleme alınan talepler en geç 24 saat içerisinde size ulaştırılır. 24 saat sonunda ulaşmayan tutarlar için lütfen destek talebi oluşturunuz.</li>
-          <li>Hafta içi oluşturulan banka çekim taleplerinde işlem bedeli 20₺'dir.</li>
-          <li>Hafta sonu oluşturulan banka çekim taleplerinde işlem bedeli 20₺'dir.</li>
-          <li>Banka hesabınıza minimum 30₺ çekim yapabilirsiniz.</li>
-          <li>Bir gün içerisinde yapılabilecek maksimum bakiye çekim limiti 25.000₺, mağaza üyelerimiz için ise 50.000₺'dir.</li>
-          <li>Bakiye çekme işlemi için İTEMSATIŞ üyelik hesabınızın T.C. kimlik, telefon ve e-posta onayı olması zorunludur.</li>
-          <li>"Bakiye Yükleme" işlemi yaparak hesabınıza yüklediğiniz bakiyenizi bu yöntem ile hesabınıza aktarmanız mümkün değildir. İTEMSATIŞ'ta yalnızca satıştan elde edilen gelirler için bakiye çekme talebinde bulunabilirsiniz. Yüklediğiniz bakiyenin iadesi için destek talebi oluşturunuz.</li>
-          <li>İlan pazarında yaptığınız bir satış sebebiyle hakkınızda şikayet oluşturulmuşsa ise çekim talebiniz aynı gün gönderilmez ve sorun çözülene kadar bekletilir.</li>
-          <li>Bakiye çekmek istediğiniz banka hesabı ile İTEMSATIŞ hesabınızda belirttiğiniz ismin aynı olması gerekmektedir. Aksi halde tutar size ulaşmayacaktır.</li>
         </ul>
-        <p className="mt-4 text-xs text-red-500 font-medium">
-          Dikkat! Destek sistemine; "bakiyem gelmedi, ne zaman gelir, acil lazım" demeniz süreci hızlandırmayacaktır. Destek sistemini çok fazla meşgul etmeniz durumunda moderatörler tarafından hesabınız bir süre askıya alınabilir.
-        </p>
       </div>
 
       {/* History Table */}

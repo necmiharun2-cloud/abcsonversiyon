@@ -63,6 +63,35 @@ import ShopierCheckout from './pages/ShopierCheckout';
 import ShopierPaymentResult from './pages/ShopierPaymentResult';
 import { missingFirebaseEnvKeys } from './firebase';
 import { LanguageProvider } from './contexts/LanguageContext';
+import { useEffect, useRef } from 'react';
+import { useAuth } from './contexts/AuthContext';
+import { runAllAutomations, loadAutomationConfig } from './services/automationService';
+
+const INTERVAL_MS = 30 * 60 * 1000; // 30 dakika
+
+function AutomationRunner() {
+  const { profile } = useAuth();
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isAdmin = profile?.role === 'admin';
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    const run = async () => {
+      try {
+        const config = await loadAutomationConfig();
+        await runAllAutomations(config);
+      } catch { /* silent background */ }
+    };
+    const delay = setTimeout(run, 8000);
+    timerRef.current = setInterval(run, INTERVAL_MS);
+    return () => {
+      clearTimeout(delay);
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [isAdmin]);
+
+  return null;
+}
 
 export default function App() {
   return (
@@ -72,6 +101,7 @@ export default function App() {
           <FavoritesProvider>
             <LanguageProvider>
               <BrowserRouter>
+                <AutomationRunner />
                 {missingFirebaseEnvKeys.length > 0 && (
                   <div className="max-w-[1400px] mx-auto px-4 pt-3">
                     <div className="bg-red-500/10 border border-red-500/30 text-red-200 text-xs rounded-lg px-3 py-2">

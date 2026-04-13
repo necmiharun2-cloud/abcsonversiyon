@@ -29,6 +29,7 @@ export interface AutomationConfig {
   campaignAutoActivate: boolean;
   withdrawalAutoQueue: boolean;
   criticalAlerts: boolean;
+  messageProfanityCheck: boolean;
   autoOrderCompleteDays: number;
   priceAnomalyMinMultiplier: number;
   priceAnomalyMaxMultiplier: number;
@@ -49,7 +50,8 @@ export const DEFAULT_CONFIG: AutomationConfig = {
   campaignAutoActivate: true,
   withdrawalAutoQueue: true,
   criticalAlerts: true,
-  autoOrderCompleteDays: 7,
+  messageProfanityCheck: true,
+  autoOrderCompleteDays: 3,
   priceAnomalyMinMultiplier: 0.05,
   priceAnomalyMaxMultiplier: 20,
   withdrawalAutoMaxAmount: 500,
@@ -564,6 +566,63 @@ export async function runCriticalAlerts(): Promise<AutomationResult> {
   return result;
 }
 
+// ─── 13. MESSAGE PROFANITY CHECK ────────────────────────────────────────────
+export async function runMessageProfanityCheck(): Promise<AutomationResult> {
+  const result: AutomationResult = { rule: 'message.profanityCheck', count: 0, details: [], errors: [] };
+  try {
+    const settingsSnap = await getDocs(query(collection(db, 'siteSettings'), limit(10)));
+    const modDoc = settingsSnap.docs.find(d => d.id === 'moderation');
+    const bannedWords: string[] = modDoc?.data()?.bannedWords || [];
+    if (bannedWords.length === 0) {
+      result.details.push('Yasaklı kelime listesi boş — atlandı');
+      return result;
+    }
+
+    // Son 500 mesajı tara
+    const msgsSnap = await getDocs(query(
+      collection(db, 'messages'),
+      orderBy('createdAt', 'desc'),
+      limit(500)
+    ));
+
+    for (const d of msgsSnap.docs) {
+      const msg = d.data();
+      const text = String(msg.text || msg.body || msg.content || '').toLowerCase();
+      const found = bannedWords.filter(w => w && text.includes(w.toLowerCase()));
+      if (found.length > 0 && !msg.flagged) {
+        await updateDoc(doc(db, 'messages', d.id), { flagged: true, flagReason: `Yasaklı kelime: ${found[0]}`, flaggedAt: serverTimestamp() });
+        await sendAdminAlert('medium', `Mesajda yasaklı kelime: "${found[0]}"`, { messageId: d.id, senderId: msg.senderId || '', word: found[0] });
+        await log('message.flagged', d.id, { word: found[0], senderId: msg.senderId || '' });
+        result.count++;
+        result.details.push(`Mesaj ${d.id.slice(0, 8)}: "${found[0]}"`)
+      }
+    }
+
+    // Ayrıca chats/*/messages koleksiyonunu tara
+    const chatsSnap = await getDocs(query(collection(db, 'chats'), limit(100)));
+    for (const chatDoc of chatsSnap.docs) {
+      const chatMsgsSnap = await getDocs(query(
+        collection(db, 'chats', chatDoc.id, 'messages'),
+        orderBy('createdAt', 'desc'),
+        limit(50)
+      ));
+      for (const d of chatMsgsSnap.docs) {
+        const msg = d.data();
+        const text = String(msg.text || '').toLowerCase();
+        const found = bannedWords.filter(w => w && text.includes(w.toLowerCase()));
+        if (found.length > 0 && !msg.flagged) {
+          await updateDoc(doc(db, 'chats', chatDoc.id, 'messages', d.id), { flagged: true, flagReason: `Yasaklı kelime: ${found[0]}`, flaggedAt: serverTimestamp() });
+          await sendAdminAlert('medium', `Sohbette yasaklı kelime: "${found[0]}"`, { chatId: chatDoc.id, messageId: d.id, senderId: msg.senderId || '', word: found[0] });
+          await log('chat.message.flagged', d.id, { chatId: chatDoc.id, word: found[0] });
+          result.count++;
+          result.details.push(`Sohbet ${chatDoc.id.slice(0, 8)} — "${found[0]}"`)
+        }
+      }
+    }
+  } catch (e: any) { result.errors.push(e.message); }
+  return result;
+}
+
 // ─── MAIN RUNNER ─────────────────────────────────────────────────────────────
 export async function runAllAutomations(config: AutomationConfig): Promise<AutomationResult[]> {
   const results: AutomationResult[] = [];
@@ -582,6 +641,7 @@ export async function runAllAutomations(config: AutomationConfig): Promise<Autom
   if (config.campaignAutoActivate) runners.push(() => runCampaignAutoActivate());
   if (config.withdrawalAutoQueue) runners.push(() => runWithdrawalAutoQueue(config));
   if (config.criticalAlerts) runners.push(() => runCriticalAlerts());
+  if (config.messageProfanityCheck) runners.push(() => runMessageProfanityCheck());
 
   for (const runner of runners) {
     try { results.push(await runner()); } catch (e: any) { results.push({ rule: 'unknown', count: 0, details: [], errors: [e.message] }); }

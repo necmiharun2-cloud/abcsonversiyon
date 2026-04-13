@@ -7,6 +7,7 @@ import FloatingChat from './FloatingChat';
 import NotificationModal from './NotificationModal';
 import SecureLoginOverlay from './SecureLoginOverlay';
 import { Outlet, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSiteSettings } from '../hooks/useSiteSettings';
 import { sendEmailVerification, signOut } from 'firebase/auth';
@@ -20,6 +21,10 @@ export default function Layout() {
   const location = useLocation();
   const isHome = location.pathname === '/';
   const [verifyBusy, setVerifyBusy] = useState(false);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [location.pathname]);
 
   const needsEmailVerify = Boolean(user && !user.emailVerified && !isStaff);
 

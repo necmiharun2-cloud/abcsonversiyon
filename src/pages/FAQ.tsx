@@ -25,10 +25,10 @@ const FAQS = [
   { category: 'popular', question: 'Ürün iadesi var mı?', answer: 'Evet, ürün teslim edilmeden önce iade talebinde bulunabilirsiniz. Teslimat sonrası iadeler için destek ekibiyle iletişime geçmeniz gerekmektedir.' },
 
   // İlan Satın Alma
-  { category: 'ilan-satin-alma', question: 'İtemsatış Instagram veya Whatsapp\'tan satış yapar mı?', answer: 'Hayır, İtemsatış sadece resmi web sitesi üzerinden satış yapmaktadır. Sosyal medya hesaplarından yapılan satış tekliflerine itibar etmeyin.' },
+  { category: 'ilan-satin-alma', question: 'itemTR Instagram veya Whatsapp\'tan satış yapar mı?', answer: 'Hayır, itemTR sadece resmi web sitesi üzerinden satış yapmaktadır. Sosyal medya hesaplarından yapılan satış tekliflerine itibar etmeyin.' },
   { category: 'ilan-satin-alma', question: 'İlan siparişimin takibini nasıl yapabilirim?', answer: 'Siparişlerim sayfasından tüm siparişlerinizi görüntüleyebilir, durumlarını takip edebilir ve satıcıyla iletişime geçebilirsiniz.' },
   { category: 'ilan-satin-alma', question: 'Favori İlan Sistemi Nedir?', answer: 'Beğendiğiniz ilanları favorilerinize ekleyerek daha sonra kolayca ulaşabilirsiniz. İlan detay sayfasındaki kalp ikonuna tıklayarak favorilerinize ekleyebilirsiniz.' },
-  { category: 'ilan-satin-alma', question: 'İlan Alışveriş Sistemi Nasıl İşliyor?', answer: 'Satın aldığınızda ödeme İtemsatış havuzunda bekletilir. Ürün teslim edildikten ve siz onay verdikten sonra ödeme satıcıya aktarılır. Bu sistemle paranız her zaman güvendedir.' },
+  { category: 'ilan-satin-alma', question: 'İlan Alışveriş Sistemi Nasıl İşliyor?', answer: 'Satın aldığınızda ödeme itemTR havuzunda bekletilir. Ürün teslim edildikten ve siz onay verdikten sonra ödeme satıcıya aktarılır. Bu sistemle paranız her zaman güvendedir.' },
   { category: 'ilan-satin-alma', question: 'Nasıl ilan alırım?', answer: 'İlan detay sayfasında "Satın Al" butonuna tıklayarak ilanı satın alabilirsiniz. Yeterli bakiyeniz yoksa bakiye yükleme sayfasına yönlendirileceksiniz.' },
   { category: 'ilan-satin-alma', question: 'Sipariş Raporlama ve Süreç', answer: 'Herhangi bir sorun yaşamanız durumunda sipariş detay sayfasından "Sorun Bildir" butonuna tıklayarak durumu raporlayabilirsiniz.' },
 
@@ -56,7 +56,7 @@ const FAQS = [
   { category: 'para-yukleme', question: 'Hediye Kartları ile Nasıl Bakiye Yüklenir?', answer: 'Desteklenen hediye kartlarınızı bakiye yükleme sayfasından kodunu girerek bakiyeye dönüştürebilirsiniz.' },
   { category: 'para-yukleme', question: 'Kripto Para ile Nasıl Yükleme Yapılır?', answer: 'Bitcoin, Ethereum ve USDT gibi kripto paralarla bakiye yükleyebilirsiniz. Kripto ödeme seçeneğini seçin ve cüzdan adresine transfer yapın.' },
   { category: 'para-yukleme', question: 'PayPal ile Nasıl Bakiye Yüklenir?', answer: 'PayPal hesabınızı bağlayarak veya PayPal ile ödeme seçeneğini seçerek bakiye yükleyebilirsiniz.' },
-  { category: 'para-yukleme', question: 'Paycell Ödeme Yöntemi ile Nasıl Bakiye Yüklenir?', answer: 'Paycell uygulaması veya web sitesi üzerinden İtemsatış seçilerek hızlıca bakiye yükleme yapabilirsiniz.' },
+  { category: 'para-yukleme', question: 'Paycell Ödeme Yöntemi ile Nasıl Bakiye Yüklenir?', answer: 'Paycell uygulaması veya web sitesi üzerinden itemTR seçilerek hızlıca bakiye yükleme yapabilirsiniz.' },
 
   // Para Çekme
   { category: 'para-cekme', question: 'Çekilebilir Tutar Nedir?', answer: 'Çekilebilir tutar, satışlardan elde ettiğiniz ve henüz bloke edilmemiş bakiyenizdir. Bloke süresi dolan tutarlar çekilebilir hale gelir.' },
@@ -151,7 +151,7 @@ export default function FAQ() {
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-white mb-3">
-            İtemSatış Yardım Merkezi
+            itemTR Yardım Merkezi
           </h1>
           <p className="text-gray-400 text-sm leading-relaxed mb-6">
             Sıkça sorulan sorular ve cevapları burada bulabilirsiniz.

@@ -3,8 +3,8 @@ import { ChevronDown, HelpCircle } from "lucide-react";
 
 const faqs = [
   {
-    q: "İtemSatış nedir ve nasıl çalışır?",
-    a: "İtemSatış, Türkiye'nin en güvenilir dijital ürün alım-satım platformudur. Satıcılar ilanlarını yayınlar, alıcılar güvenli ödeme sistemi ile satın alır. İtemSatış güvencesi ile her işlem koruma altındadır.",
+    q: "itemTR nedir ve nasıl çalışır?",
+    a: "itemTR, Türkiye'nin en güvenilir dijital ürün alım-satım platformudur. Satıcılar ilanlarını yayınlar, alıcılar güvenli ödeme sistemi ile satın alır. itemTR güvencesi ile her işlem koruma altındadır.",
   },
   {
     q: "Ödeme yöntemleri nelerdir?",
@@ -20,7 +20,7 @@ const faqs = [
   },
   {
     q: "İade ve şikâyet süreci nasıl işler?",
-    a: "Ürünle ilgili sorun yaşamanız durumunda 'Destek Talebi' oluşturarak 7/24 destek ekibimizden yardım alabilirsiniz. İtemSatış güvencesi kapsamında haklı talepler hızlıca çözüme kavuşturulur.",
+    a: "Ürünle ilgili sorun yaşamanız durumunda 'Destek Talebi' oluşturarak 7/24 destek ekibimizden yardım alabilirsiniz. itemTR güvencesi kapsamında haklı talepler hızlıca çözüme kavuşturulur.",
   },
   {
     q: "Hesabım güvende mi?",

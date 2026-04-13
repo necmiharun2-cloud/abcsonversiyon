@@ -11,7 +11,7 @@ const MobileAppBanner = () => {
           <Smartphone className="h-8 w-8 text-primary" />
         </div>
         <div className="flex-1 space-y-2 text-center md:text-left">
-          <h3 className="text-lg font-bold text-foreground">İtemSatış Mobil Uygulama</h3>
+          <h3 className="text-lg font-bold text-foreground">itemTR Mobil Uygulama</h3>
           <p className="text-sm text-muted-foreground">
             Her yerden güvenle alışveriş yapın. Anlık bildirimler, hızlı erişim ve özel mobil fırsatlar!
           </p>

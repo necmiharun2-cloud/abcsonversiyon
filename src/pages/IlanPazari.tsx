@@ -130,7 +130,7 @@ export default function IlanPazari() {
                 </span>
               </div>
               <h1 className="text-2xl sm:text-3xl font-bold text-white mb-3">
-                İtemSatış İlan Pazarı
+                itemTR İlan Pazarı
               </h1>
               <p className="text-gray-400 text-sm leading-relaxed">
                 Online oyunlardaki item, skin, gold gibi oyun içi ürünleri satarak para kazanabilirsiniz. 

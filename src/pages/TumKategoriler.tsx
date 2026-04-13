@@ -27,7 +27,7 @@ const cards: CategoryCard[] = [
   { name: 'Clash of Clans', type: 'oyun', image: 'https://picsum.photos/seed/coc-card/600/700', subCategories: ['Hesap', 'Taş', 'İlan Pazarı'], route: '/ilan-pazari?q=Clash%20of%20Clans' },
   { name: 'Growtopia', type: 'oyun', image: 'https://picsum.photos/seed/growtopia-card/600/700', subCategories: ['Gems', 'İlan Pazarı'], route: '/ilan-pazari?q=Growtopia' },
   { name: 'Wuthering Waves', type: 'oyun', image: 'https://picsum.photos/seed/wuthering-card/600/700', subCategories: ['Lunite', 'Hesap'], route: '/ilan-pazari?q=Wuthering%20Waves' },
-  { name: 'Hediye Kartları', type: 'lisans', image: 'https://picsum.photos/seed/giftcard-card/600/700', subCategories: ['Apple Store', 'Google Play', 'ItemSatış', 'Playstation'], route: '/hediye-kartlari' },
+  { name: 'Hediye Kartları', type: 'lisans', image: 'https://picsum.photos/seed/giftcard-card/600/700', subCategories: ['Apple Store', 'Google Play', 'itemTR', 'Playstation'], route: '/hediye-kartlari' },
   { name: 'Lisans Hizmetleri', type: 'lisans', image: 'https://picsum.photos/seed/license-card/600/700', subCategories: ['Canva', 'OpenAI ChatGPT', 'Office Programları', 'Freepik'], route: '/ilan-pazari?q=Lisans%20Hizmetleri' },
   { name: 'Platformlar', type: 'lisans', image: 'https://picsum.photos/seed/platform-card/600/700', subCategories: ['Xbox', 'Playstation', 'Netflix', 'Disney+'], route: '/ilan-pazari?q=Platform' },
   { name: 'Zula', type: 'oyun', image: 'https://picsum.photos/seed/zula-card/600/700', subCategories: ['Altın', 'Hesap', 'Random Hesap', 'Mobile'], route: '/ilan-pazari?q=Zula' },
