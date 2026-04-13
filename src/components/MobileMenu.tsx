@@ -62,10 +62,10 @@ const MobileMenu = () => {
             {/* Quick Actions */}
             <div className="p-3 border-b border-border">
               <div className="grid grid-cols-2 gap-2">
-                <Link to="/create-listing" onClick={() => setOpen(false)} className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold">
+                <Link to="/ilan-ekle" onClick={() => setOpen(false)} className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold">
                   <Package className="h-4 w-4" /> İlan Ekle
                 </Link>
-                <Link to="/deposit" onClick={() => setOpen(false)} className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-success/10 text-success text-sm font-semibold">
+                <Link to="/bakiye-yukle" onClick={() => setOpen(false)} className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-success/10 text-success text-sm font-semibold">
                   <Wallet className="h-4 w-4" /> Bakiye Yükle
                 </Link>
               </div>

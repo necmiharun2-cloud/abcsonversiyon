@@ -271,13 +271,14 @@ export default function Streamers() {
               </p>
             </div>
 
-            <Link
-              to="/yayinci-basvurusu"
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(true)}
               className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-purple-500/25 transition-all"
             >
               <Play className="w-5 h-5" />
               Yeni Yayıncı Başvurusu
-            </Link>
+            </button>
           </div>
 
           {/* Stats */}

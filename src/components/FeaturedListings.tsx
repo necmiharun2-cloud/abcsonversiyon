@@ -38,7 +38,7 @@ const FeaturedListings = () => {
             <span>15.432 aktif ilan</span>
           </div>
         </div>
-        <Link to="/category" className="flex items-center gap-1 text-sm text-primary hover:underline font-medium">
+        <Link to="/ilan-pazari" className="flex items-center gap-1 text-sm text-primary hover:underline font-medium">
           Tümünü Gör <ChevronRight className="h-4 w-4" />
         </Link>
       </div>

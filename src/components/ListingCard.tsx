@@ -18,7 +18,7 @@ const ListingCard = ({ title, category, seller, price, oldPrice, imageColor, emo
   const discount = oldPrice ? Math.round((1 - parseFloat(price.replace(/[^\d,]/g, '').replace(',', '.')) / parseFloat(oldPrice.replace(/[^\d,]/g, '').replace(',', '.'))) * 100) : 0;
 
   return (
-    <Link to="/listing/1" className="group block bg-card rounded-xl border border-border overflow-hidden hover:border-primary/40 transition-all hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5 duration-200">
+    <Link to="/ilan-pazari" className="group block bg-card rounded-xl border border-border overflow-hidden hover:border-primary/40 transition-all hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5 duration-200">
       {/* Image area */}
       <div className="relative">
         <div className={`w-full h-[130px] ${imageColor} flex items-center justify-center`}>

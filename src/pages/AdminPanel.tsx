@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebase';
 import {
   addDoc, collection, doc, getDoc, getDocs, limit, orderBy, query,
-  serverTimestamp, setDoc, updateDoc, where
+  runTransaction, serverTimestamp, setDoc, updateDoc
 } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import {
@@ -132,6 +132,22 @@ export default function AdminPanel() {
   const isStaff = profile?.role === 'admin' || profile?.role === 'moderator';
   const isAdmin = profile?.role === 'admin';
 
+  const openDisputesCount = useMemo(() => disputes.filter((d) => ['open', 'active', 'pending'].includes(String(d.status || '').toLowerCase())).length, [disputes]);
+
+  const setTabParam = (nextTab: TabKey) => {
+    setTab(nextTab);
+    setSearchParams({ tab: nextTab });
+  };
+
+  const safeFetchCollection = async (collectionName: string, max = 100) => {
+    try {
+      return await getDocs(query(collection(db, collectionName), orderBy('createdAt', 'desc'), limit(max)));
+    } catch (error) {
+      console.warn(`Falling back to unordered query for ${collectionName}`, error);
+      return await getDocs(query(collection(db, collectionName), limit(max)));
+    }
+  };
+
   // Load all data
   const loadAll = async () => {
     if (!user || !isStaff) return;
@@ -141,15 +157,15 @@ export default function AdminPanel() {
         wdSnap, ticketSnap, productSnap, kycSnap, userSnap,
         disputeSnap, txSnap, logSnap, giveawaySnap
       ] = await Promise.all([
-        getDocs(query(collection(db, 'withdrawals'), orderBy('createdAt', 'desc'), limit(100))),
-        getDocs(query(collection(db, 'supportTickets'), orderBy('createdAt', 'desc'), limit(100))),
-        getDocs(query(collection(db, 'products'), orderBy('createdAt', 'desc'), limit(100))),
-        getDocs(query(collection(db, 'kycRequests'), orderBy('createdAt', 'desc'), limit(100))),
-        getDocs(query(collection(db, 'users'), orderBy('createdAt', 'desc'), limit(100))),
-        getDocs(query(collection(db, 'disputes'), orderBy('createdAt', 'desc'), limit(100))),
-        getDocs(query(collection(db, 'transactions'), orderBy('createdAt', 'desc'), limit(200))),
-        getDocs(query(collection(db, 'adminLogs'), orderBy('createdAt', 'desc'), limit(200))),
-        getDocs(query(collection(db, 'giveaways'), orderBy('createdAt', 'desc'), limit(50))),
+        safeFetchCollection('withdrawals', 100),
+        safeFetchCollection('supportTickets', 100),
+        safeFetchCollection('products', 100),
+        safeFetchCollection('kycRequests', 100),
+        safeFetchCollection('users', 100),
+        safeFetchCollection('disputes', 100),
+        safeFetchCollection('transactions', 200),
+        safeFetchCollection('adminLogs', 200),
+        safeFetchCollection('giveaways', 50),
       ]);
 
       setWithdrawals(wdSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
@@ -161,8 +177,9 @@ export default function AdminPanel() {
       setTransactions(txSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       setAdminLogs(logSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       setGiveaways(giveawaySnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-    } catch {
-      toast.error('Admin verileri yuklenemedi.');
+    } catch (error) {
+      console.error('Admin verileri yuklenemedi', error);
+      toast.error('Admin verileri yuklenemedi. Firestore index veya izinlerini kontrol edin.');
     } finally {
       setLoadingData(false);
     }
@@ -277,6 +294,150 @@ export default function AdminPanel() {
     }
   };
 
+  const closeTicket = async (ticket: any) => {
+    if (!isStaff) return;
+    try {
+      await updateDoc(doc(db, 'supportTickets', ticket.id), {
+        status: 'closed',
+        updatedAt: serverTimestamp(),
+        closedAt: serverTimestamp(),
+        closedBy: user?.uid || '',
+      });
+      await logAction('support.close', 'supportTickets', ticket.id, { subject: ticket.subject || '' });
+      toast.success('Ticket kapatildi.');
+      await loadAll();
+    } catch (error) {
+      console.error('Ticket kapatma hatasi', error);
+      toast.error('Ticket kapatilamadi.');
+    }
+  };
+
+  const resolveDispute = async (dispute: any, status: 'resolved' | 'rejected') => {
+    if (!isStaff) return;
+    const note = window.prompt('Karar / not girin:') || '';
+    try {
+      await updateDoc(doc(db, 'disputes', dispute.id), {
+        status,
+        resolutionNote: note,
+        reviewedBy: user?.uid || '',
+        reviewedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      if (dispute.orderId) {
+        await updateDoc(doc(db, 'orders', String(dispute.orderId)), {
+          disputeStatus: status,
+          updatedAt: serverTimestamp(),
+        }).catch(() => {});
+      }
+      await logAction('dispute.resolve', 'disputes', dispute.id, { status, note, orderId: dispute.orderId || '' });
+      toast.success('Uyusmazlik guncellendi.');
+      await loadAll();
+    } catch (error) {
+      console.error('Uyusmazlik guncelleme hatasi', error);
+      toast.error('Uyusmazlik guncellenemedi.');
+    }
+  };
+
+  const createGiveaway = async () => {
+    if (!isStaff) return;
+    const title = window.prompt('Cekilis basligi:');
+    const prize = window.prompt('Odul:');
+    if (!title || !prize) return;
+    try {
+      const ref = await addDoc(collection(db, 'giveaways'), {
+        title: title.trim(),
+        prize: prize.trim(),
+        status: 'active',
+        participants: [],
+        winner: null,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        createdBy: user?.uid || '',
+        endDate: null,
+      });
+      await logAction('giveaway.create', 'giveaways', ref.id, { title: title.trim(), prize: prize.trim() });
+      toast.success('Cekilis olusturuldu.');
+      await loadAll();
+    } catch (error) {
+      console.error('Cekilis olusturma hatasi', error);
+      toast.error('Cekilis olusturulamadi.');
+    }
+  };
+
+  const pickGiveawayWinner = async (giveaway: any) => {
+    if (!isStaff) return;
+    const parts = Array.isArray(giveaway.participants) ? giveaway.participants : [];
+    if (parts.length === 0) {
+      toast.error('Katilimci yok.');
+      return;
+    }
+    const winner = parts[Math.floor(Math.random() * parts.length)];
+    try {
+      await updateDoc(doc(db, 'giveaways', giveaway.id), {
+        winner,
+        status: 'completed',
+        completedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      await logAction('giveaway.pickWinner', 'giveaways', giveaway.id, { winner });
+      toast.success(`Kazanan: ${winner}`);
+      await loadAll();
+    } catch (error) {
+      console.error('Kazanan secme hatasi', error);
+      toast.error('Kazanan secilemedi.');
+    }
+  };
+
+  const createManualTransaction = async () => {
+    if (!isStaff) return;
+    const userId = (window.prompt('Kullanici ID:') || '').trim();
+    const amount = Number(window.prompt('Tutar (+/-):'));
+    const reason = (window.prompt('Aciklama:') || 'Manual duzeltme').trim();
+    if (!userId || !Number.isFinite(amount) || amount === 0) {
+      toast.error('Gecerli kullanici ve tutar girin.');
+      return;
+    }
+    try {
+      await runTransaction(db, async (tx) => {
+        const userRef = doc(db, 'users', userId);
+        const txRef = doc(collection(db, 'transactions'));
+        const userSnap = await tx.get(userRef);
+        if (!userSnap.exists()) throw new Error('Kullanici bulunamadi');
+
+        const raw = userSnap.data() as any;
+        const currentAvailableCents = typeof raw.balanceAvailableCents === 'number'
+          ? Number(raw.balanceAvailableCents || 0)
+          : Math.round(Number(raw.balance || 0) * 100);
+        const nextAvailableCents = currentAvailableCents + Math.round(amount * 100);
+        if (nextAvailableCents < 0) throw new Error('Bakiye eksiye dusuyor');
+
+        tx.update(userRef, {
+          balanceAvailableCents: nextAvailableCents,
+          balanceHeldCents: typeof raw.balanceHeldCents === 'number' ? Number(raw.balanceHeldCents || 0) : 0,
+          balance: nextAvailableCents / 100,
+          updatedAt: serverTimestamp(),
+        });
+        tx.set(txRef, {
+          userId,
+          type: 'manual_adjustment',
+          amount,
+          fee: 0,
+          status: 'completed',
+          direction: amount >= 0 ? 'credit' : 'debit',
+          reason,
+          createdAt: serverTimestamp(),
+          actorId: user?.uid || '',
+        });
+      });
+      await logAction('finance.manualAdjustment', 'users', userId, { amount, reason });
+      toast.success('Manuel islem kaydedildi.');
+      await loadAll();
+    } catch (error: any) {
+      console.error('Manuel islem hatasi', error);
+      toast.error(error?.message || 'Manuel islem kaydedilemedi.');
+    }
+  };
+
   const saveSettings = async () => {
     if (!isStaff) return;
     try {
@@ -304,7 +465,7 @@ export default function AdminPanel() {
   }, [users, userFilter]);
 
   if (loading) return <div className="text-center py-20 text-white">Yukleniyor...</div>;
-  if (!user) return <Navigate to="/giris" />;
+  if (!user) return <Navigate to="/login" replace />;
   if (!isStaff) {
     return (
       <div className="max-w-2xl mx-auto bg-[#1a1b23] border border-white/10 rounded-2xl p-8 text-center mt-20">
@@ -363,7 +524,7 @@ export default function AdminPanel() {
                 { k: 'moderation', label: 'Ilanlar', icon: Package, badge: products.filter(p => p.moderationStatus === 'pending').length },
                 { k: 'kyc', label: 'KYC', icon: FileCheck, badge: kycQueue.filter(k => k.status === 'pending').length },
                 { k: 'support', label: 'Destek', icon: MessageSquare, badge: tickets.filter(t => t.status === 'open').length },
-                { k: 'disputes', label: 'Uyusmazliklar', icon: Gavel, badge: disputes.filter(d => d.status === 'active').length },
+                { k: 'disputes', label: 'Uyusmazliklar', icon: Gavel, badge: openDisputesCount },
                 { k: 'giveaways', label: 'Cekilisler', icon: Gift },
                 { k: 'finance', label: 'Finans', icon: DollarSign },
                 { k: 'logs', label: 'Loglar', icon: Activity },
@@ -371,7 +532,7 @@ export default function AdminPanel() {
               ].map(({ k, label, icon: Icon, badge }: any) => (
                 <button
                   key={k}
-                  onClick={() => { setTab(k as TabKey); setSearchParams({ tab: k }); }}
+                  onClick={() => setTabParam(k as TabKey)}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                     tab === k ? 'bg-[#5b68f6] text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'
                   }`}
@@ -411,16 +572,16 @@ export default function AdminPanel() {
                     <CardTitle className="text-white">Hizli Erisim</CardTitle>
                   </CardHeader>
                   <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <Button onClick={() => setTab('users')} className="h-20 flex flex-col items-center justify-center gap-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20">
+                    <Button onClick={() => setTabParam('users')} className="h-20 flex flex-col items-center justify-center gap-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20">
                       <Users className="w-6 h-6" /><span>Kullanicilar</span>
                     </Button>
-                    <Button onClick={() => setTab('withdrawals')} className="h-20 flex flex-col items-center justify-center gap-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20">
+                    <Button onClick={() => setTabParam('withdrawals')} className="h-20 flex flex-col items-center justify-center gap-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20">
                       <Wallet className="w-6 h-6" /><span>Cekimler</span>
                     </Button>
-                    <Button onClick={() => setTab('moderation')} className="h-20 flex flex-col items-center justify-center gap-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20">
+                    <Button onClick={() => setTabParam('moderation')} className="h-20 flex flex-col items-center justify-center gap-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20">
                       <Package className="w-6 h-6" /><span>Ilanlar</span>
                     </Button>
-                    <Button onClick={() => setTab('support')} className="h-20 flex flex-col items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20">
+                    <Button onClick={() => setTabParam('support')} className="h-20 flex flex-col items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20">
                       <MessageSquare className="w-6 h-6" /><span>Destek</span>
                     </Button>
                   </CardContent>
@@ -713,7 +874,7 @@ export default function AdminPanel() {
                                 <Badge variant="outline" className="bg-amber-500/10 text-amber-400">{t.category}</Badge>
                               </div>
                             </div>
-                            <Button size="sm" className="bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20" onClick={() => updateDoc(doc(db, 'supportTickets', t.id), { status: 'closed', updatedAt: serverTimestamp() }).then(() => { toast.success('Ticket kapatildi'); loadAll(); })}>
+                            <Button size="sm" className="bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20" onClick={() => closeTicket(t)}>
                               <CheckCircle className="w-4 h-4 mr-1" /> Kapat
                             </Button>
                           </div>
@@ -736,21 +897,7 @@ export default function AdminPanel() {
                     <CardTitle className="text-white">Cekilis Yonetimi</CardTitle>
                     <CardDescription className="text-gray-400">Cekilisleri olusturun ve yonetin</CardDescription>
                   </div>
-                  <Button className="bg-[#5b68f6] hover:bg-[#5b68f6]/90" onClick={() => {
-                    const title = window.prompt('Cekilis basligi:');
-                    const prize = window.prompt('Odul:');
-                    if (title && prize) {
-                      addDoc(collection(db, 'giveaways'), {
-                        title,
-                        prize,
-                        status: 'active',
-                        participants: [],
-                        winner: null,
-                        createdAt: serverTimestamp(),
-                        endDate: null,
-                      }).then(() => { toast.success('Cekilis olusturuldu'); loadAll(); });
-                    }
-                  }}>
+                  <Button className="bg-[#5b68f6] hover:bg-[#5b68f6]/90" onClick={createGiveaway}>
                     <Plus className="w-4 h-4 mr-2" /> Yeni Cekilis
                   </Button>
                 </CardHeader>
@@ -767,13 +914,7 @@ export default function AdminPanel() {
                             </div>
                             <div className="flex gap-2">
                               {g.status === 'active' && !g.winner && (
-                                <Button size="sm" className="bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 border border-purple-500/20" onClick={() => {
-                                  const parts = g.participants || [];
-                                  if (parts.length === 0) { toast.error('Katilimci yok'); return; }
-                                  const winner = parts[Math.floor(Math.random() * parts.length)];
-                                  updateDoc(doc(db, 'giveaways', g.id), { winner, status: 'completed', completedAt: serverTimestamp() })
-                                    .then(() => { toast.success(`Kazanan: ${winner}`); loadAll(); });
-                                }}>
+                                <Button size="sm" className="bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 border border-purple-500/20" onClick={() => pickGiveawayWinner(g)}>
                                   <Gift className="w-4 h-4 mr-1" /> Kazanan Sec
                                 </Button>
                               )}
@@ -791,6 +932,64 @@ export default function AdminPanel() {
               </Card>
             )}
 
+            {/* DISPUTES TAB */}
+            {tab === 'disputes' && (
+              <Card className="bg-[#1a1b23] border-white/10">
+                <CardHeader>
+                  <CardTitle className="text-white">Uyusmazlik Yonetimi</CardTitle>
+                  <CardDescription className="text-gray-400">Acilan uyusmazlik kayitlarini inceleyin ve sonuclandirin</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4">
+                    {disputes.map((d) => {
+                      const disputeStatus = String(d.status || 'open').toLowerCase();
+                      const isOpen = ['open', 'active', 'pending'].includes(disputeStatus);
+                      return (
+                        <Card key={d.id} className="bg-[#111218] border-white/10">
+                          <CardContent className="p-4">
+                            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/20">Siparis</Badge>
+                                  <span className="text-sm text-gray-400">{d.orderId || 'Siparis baglantisi yok'}</span>
+                                </div>
+                                <h3 className="text-white font-medium">{d.reason || 'Uyuşmazlık nedeni belirtilmemiş.'}</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                                  <div className="text-gray-400">Alici: <span className="text-white">{d.buyerId || '-'}</span></div>
+                                  <div className="text-gray-400">Satici: <span className="text-white">{d.sellerId || '-'}</span></div>
+                                  <div className="text-gray-400">Durum: <span className="text-white">{disputeStatus}</span></div>
+                                  <div className="text-gray-400">Tarih: <span className="text-white">{d.createdAt?.toDate?.() ? format(d.createdAt.toDate(), 'dd.MM.yyyy HH:mm', { locale: tr }) : 'N/A'}</span></div>
+                                </div>
+                                {d.resolutionNote && (
+                                  <p className="text-xs text-gray-500 border border-white/5 rounded-lg p-3">Karar notu: {d.resolutionNote}</p>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap gap-2 lg:justify-end">
+                                <StatusBadge status={isOpen ? 'open' : disputeStatus} />
+                                {isOpen && (
+                                  <>
+                                    <Button size="sm" className="bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20" onClick={() => resolveDispute(d, 'resolved')}>
+                                      <CheckCircle className="w-4 h-4 mr-1" /> Coz
+                                    </Button>
+                                    <Button size="sm" variant="outline" className="border-red-500/20 text-red-400 hover:bg-red-500/10" onClick={() => resolveDispute(d, 'rejected')}>
+                                      <XCircle className="w-4 h-4 mr-1" /> Reddet
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                    {disputes.length === 0 && (
+                      <div className="text-center py-10 text-gray-400">Uyusmazlik kaydi bulunmuyor.</div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* FINANCE TAB */}
             {tab === 'finance' && (
               <Card className="bg-[#1a1b23] border-white/10">
@@ -799,17 +998,7 @@ export default function AdminPanel() {
                     <CardTitle className="text-white">Finans Islemleri</CardTitle>
                     <CardDescription className="text-gray-400">Tum finansal islemleri goruntuleyin</CardDescription>
                   </div>
-                  <Button className="bg-[#5b68f6] hover:bg-[#5b68f6]/90" onClick={() => {
-                    const userId = window.prompt('Kullanici ID:');
-                    const amount = Number(window.prompt('Tutar (+/-):'));
-                    const reason = window.prompt('Aciklama:') || 'Manual duzeltme';
-                    if (userId && amount) {
-                      addDoc(collection(db, 'transactions'), {
-                        userId, type: 'manual_adjustment', amount, fee: 0, status: 'completed',
-                        reason, createdAt: serverTimestamp(),
-                      }).then(() => { toast.success('Islem kaydedildi'); loadAll(); });
-                    }
-                  }}>
+                  <Button className="bg-[#5b68f6] hover:bg-[#5b68f6]/90" onClick={createManualTransaction}>
                     <Plus className="w-4 h-4 mr-2" /> Manuel Islem
                   </Button>
                 </CardHeader>
