@@ -1,7 +1,7 @@
 import { useState, FormEvent, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db, storage } from '../firebase';
-import { collection, addDoc, doc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, serverTimestamp, setDoc, updateDoc, getDocs, query, where, limit } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -196,6 +196,31 @@ export default function IlanEkle() {
       toast.error('Lütfen tüm alanları geçerli şekilde doldurun.');
       return;
     }
+
+    // ── Ön Kontroller ──────────────────────────────────────────────
+    try {
+      // 1. Yasaklı kelime taraması
+      const settingsSnap = await getDocs(query(collection(db, 'siteSettings'), limit(10)));
+      const modDoc = settingsSnap.docs.find(d => d.id === 'moderation');
+      const bannedWords: string[] = modDoc?.data()?.bannedWords || [];
+      const listingText = `${formData.title} ${formData.description}`.toLowerCase();
+      const found = bannedWords.filter(w => w && listingText.includes(w.toLowerCase()));
+      if (found.length > 0) {
+        toast.error(`İlanınızda yasaklı kelime var: "${found[0]}". Lütfen düzenleyin.`);
+        return;
+      }
+      // 2. Tekrar eden ilan kontrolü
+      const dupSnap = await getDocs(query(
+        collection(db, 'products'),
+        where('sellerId', '==', user.uid),
+        where('title', '==', formData.title),
+        limit(1)
+      ));
+      if (!dupSnap.empty) {
+        toast.error('Bu başlıkla zaten bir ilanınız var. Başlığı değiştirin.');
+        return;
+      }
+    } catch { /* Kontrol başarısız olursa devam et */ }
 
     setLoading(true);
     try {

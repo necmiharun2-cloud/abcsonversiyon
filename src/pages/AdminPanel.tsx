@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, lazy, Suspense } from 'react';
+﻿import { useEffect, useState, lazy, Suspense, type ReactNode } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebase';
@@ -8,9 +8,10 @@ import { ScrollArea } from '../components/ui/scroll-area';
 import {
   LayoutDashboard, Users, Shield, Package, ShoppingBag, Gavel,
   Wallet, MessageSquare, Store, Star, Bell, Gift, FileText, Tag,
-  Settings, Lock, BarChart3, ChevronLeft, ChevronRight, Menu, LogOut,
-  AlertTriangle
+  Settings, Lock, BarChart3, ChevronLeft, Menu, LogOut,
+  AlertTriangle, Bot
 } from 'lucide-react';
+import { loadAutomationConfig, runAllAutomations } from '../services/automationService';
 
 const AdminDashboard = lazy(() => import('./admin/AdminDashboard'));
 const AdminUsers = lazy(() => import('./admin/AdminUsers'));
@@ -29,11 +30,13 @@ const AdminCategories = lazy(() => import('./admin/AdminCategories'));
 const AdminSettings = lazy(() => import('./admin/AdminSettings'));
 const AdminSecurity = lazy(() => import('./admin/AdminSecurity'));
 const AdminAnalytics = lazy(() => import('./admin/AdminAnalytics'));
+const AdminAutomation = lazy(() => import('./admin/AdminAutomation'));
 
 type TabKey =
   | 'dashboard' | 'users' | 'roles' | 'listings' | 'orders' | 'disputes'
   | 'finance' | 'support' | 'stores' | 'reviews' | 'notifications'
-  | 'campaigns' | 'content' | 'categories' | 'settings' | 'security' | 'analytics';
+  | 'campaigns' | 'content' | 'categories' | 'settings' | 'security' | 'analytics'
+  | 'automation';
 
 const NAV_GROUPS = [
   {
@@ -79,6 +82,7 @@ const NAV_GROUPS = [
   {
     label: 'Sistem',
     items: [
+      { key: 'automation' as TabKey, label: 'Otomasyon', icon: Bot, badge: 'autoAlerts' },
       { key: 'settings' as TabKey, label: 'Site Ayarları', icon: Settings },
       { key: 'security' as TabKey, label: 'Güvenlik', icon: Lock },
     ],
@@ -118,10 +122,11 @@ export default function AdminPanel() {
           try { return (await getDocs(query(collection(db, col), limit(max)))).docs.map(d => ({ id: d.id, ...d.data() as any })); }
           catch { return []; }
         };
-        const [products, orders, disputes, withdrawals, tickets, storeApps, kycReqs] = await Promise.all([
+        const [products, orders, disputes, withdrawals, tickets, storeApps, kycReqs, autoAlerts] = await Promise.all([
           safe('products', 100), safe('orders', 100), safe('disputes', 50),
           safe('withdrawals', 50), safe('supportTickets', 50),
           safe('storeApplications', 50), safe('kycRequests', 50),
+          safe('adminAlerts', 50),
         ]);
         setBadges({
           pendingListings: products.filter((p: any) => p.moderationStatus === 'pending').length,
@@ -131,11 +136,24 @@ export default function AdminPanel() {
           openTickets: tickets.filter((t: any) => t.status === 'open').length,
           pendingStores: storeApps.filter((s: any) => s.status === 'pending').length,
           pendingKyc: kycReqs.filter((k: any) => k.status === 'pending').length,
+          autoAlerts: autoAlerts.filter((a: any) => !a.resolved).length,
         });
       } catch { /* no-op */ }
     };
     if (isStaff) loadBadges();
   }, [isStaff]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    const runAutomation = async () => {
+      try {
+        const cfg = await loadAutomationConfig();
+        await runAllAutomations(cfg);
+      } catch { /* silent background run */ }
+    };
+    const timer = setTimeout(runAutomation, 5000);
+    return () => clearTimeout(timer);
+  }, [isAdmin]);
 
   if (!user) return <Navigate to="/login" replace />;
   if (!isStaff) {
@@ -154,7 +172,7 @@ export default function AdminPanel() {
   }
 
   const renderSection = () => {
-    const wrap = (node: React.ReactNode) => (
+    const wrap = (node: ReactNode) => (
       <Suspense fallback={<SectionLoader />}>{node}</Suspense>
     );
     switch (activeTab) {
@@ -175,6 +193,7 @@ export default function AdminPanel() {
       case 'settings': return wrap(<AdminSettings />);
       case 'security': return wrap(<AdminSecurity />);
       case 'analytics': return wrap(<AdminAnalytics />);
+      case 'automation': return wrap(<AdminAutomation />);
       default: return wrap(<AdminDashboard onNavigate={navigateTo} />);
     }
   };
