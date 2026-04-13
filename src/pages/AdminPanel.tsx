@@ -33,10 +33,14 @@ import {
   RefreshCw, LogOut, Shield, Wallet, MessageSquare, Gift,
   BarChart3, Activity, Settings, CheckCircle, XCircle, Filter,
   TrendingUp, TrendingDown, Eye, Ban, UserCheck, Gavel,
-  ChevronLeft, ChevronRight, Edit, Plus, Calendar
+  ChevronLeft, ChevronRight, Edit, Plus, Calendar, Bell,
+  Star, Store, Tag, Globe, Lock, AlertTriangle, Hash,
+  Layers, ShoppingBag, CreditCard, Award, Megaphone, Flag,
+  Inbox, UserX, Percent, Trash2, ArrowUp, ArrowDown, BookOpen
 } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 
-type TabKey = 'dashboard' | 'withdrawals' | 'support' | 'moderation' | 'kyc' | 'users' | 'disputes' | 'finance' | 'logs' | 'settings' | 'giveaways';
+type TabKey = 'dashboard' | 'withdrawals' | 'support' | 'moderation' | 'kyc' | 'users' | 'disputes' | 'finance' | 'logs' | 'settings' | 'giveaways' | 'orders' | 'stores' | 'campaigns' | 'categories' | 'notifications' | 'security' | 'reviews' | 'reports';
 
 // Status Badge Component
 const StatusBadge = ({ status }: { status: string }) => {
@@ -105,16 +109,36 @@ export default function AdminPanel() {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [adminLogs, setAdminLogs] = useState<any[]>([]);
   const [giveaways, setGiveaways] = useState<any[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [stores, setStores] = useState<any[]>([]);
+  const [storeApplications, setStoreApplications] = useState<any[]>([]);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [reportedContent, setReportedContent] = useState<any[]>([]);
+  const [bannedWords, setBannedWords] = useState<string[]>([]);
+  const [systemNotifications, setSystemNotifications] = useState<any[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   // Filters
   const [userFilter, setUserFilter] = useState({ role: 'all', status: 'all', search: '' });
   const [withdrawalFilter, setWithdrawalFilter] = useState('all');
+  const [orderFilter, setOrderFilter] = useState('all');
+  const [listingFilter, setListingFilter] = useState('all');
 
   // Modal states
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [userModalOpen, setUserModalOpen] = useState(false);
+  const [ticketReplyOpen, setTicketReplyOpen] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState<any>(null);
+  const [ticketReply, setTicketReply] = useState('');
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newBannedWord, setNewBannedWord] = useState('');
+  const [notifTitle, setNotifTitle] = useState('');
+  const [notifBody, setNotifBody] = useState('');
+  const [notifTarget, setNotifTarget] = useState('all');
+  const [userNote, setUserNote] = useState('');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // Site Settings
   const [siteSettings, setSiteSettings] = useState<any>({
@@ -155,17 +179,25 @@ export default function AdminPanel() {
     try {
       const [
         wdSnap, ticketSnap, productSnap, kycSnap, userSnap,
-        disputeSnap, txSnap, logSnap, giveawaySnap
+        disputeSnap, txSnap, logSnap, giveawaySnap,
+        orderSnap, storeSnap, storeAppSnap, reviewSnap,
+        categorySnap, reportSnap
       ] = await Promise.all([
         safeFetchCollection('withdrawals', 100),
         safeFetchCollection('supportTickets', 100),
-        safeFetchCollection('products', 100),
+        safeFetchCollection('products', 200),
         safeFetchCollection('kycRequests', 100),
-        safeFetchCollection('users', 100),
+        safeFetchCollection('users', 200),
         safeFetchCollection('disputes', 100),
         safeFetchCollection('transactions', 200),
         safeFetchCollection('adminLogs', 200),
         safeFetchCollection('giveaways', 50),
+        safeFetchCollection('orders', 200),
+        safeFetchCollection('stores', 100),
+        safeFetchCollection('storeApplications', 100),
+        safeFetchCollection('reviews', 100),
+        safeFetchCollection('categories', 50),
+        safeFetchCollection('reports', 100),
       ]);
 
       setWithdrawals(wdSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
@@ -177,6 +209,12 @@ export default function AdminPanel() {
       setTransactions(txSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       setAdminLogs(logSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       setGiveaways(giveawaySnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setOrders(orderSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setStores(storeSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setStoreApplications(storeAppSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setReviews(reviewSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setCategories(categorySnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setReportedContent(reportSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
     } catch (error) {
       console.error('Admin verileri yuklenemedi', error);
       toast.error('Admin verileri yuklenemedi. Firestore index veya izinlerini kontrol edin.');
@@ -438,6 +476,154 @@ export default function AdminPanel() {
     }
   };
 
+  const updateOrderStatus = async (order: any, status: string) => {
+    if (!isStaff) return;
+    try {
+      await updateDoc(doc(db, 'orders', order.id), { status, updatedAt: serverTimestamp(), reviewedBy: user?.uid });
+      await logAction('order.updateStatus', 'orders', order.id, { status });
+      toast.success('Siparis durumu guncellendi.');
+      loadAll();
+    } catch { toast.error('Guncelleme basarisiz.'); }
+  };
+
+  const replyToTicket = async () => {
+    if (!isStaff || !selectedTicket || !ticketReply.trim()) return;
+    try {
+      const replyRef = collection(db, 'supportTickets', selectedTicket.id, 'messages');
+      await addDoc(replyRef, { message: ticketReply.trim(), senderId: user?.uid, senderRole: profile?.role, createdAt: serverTimestamp() });
+      await updateDoc(doc(db, 'supportTickets', selectedTicket.id), { status: 'answered', updatedAt: serverTimestamp() });
+      await logAction('support.reply', 'supportTickets', selectedTicket.id, { reply: ticketReply.trim() });
+      toast.success('Cevap gonderildi.');
+      setTicketReply('');
+      setTicketReplyOpen(false);
+      loadAll();
+    } catch { toast.error('Cevap gonderilemedi.'); }
+  };
+
+  const approveStore = async (app: any, status: 'approved' | 'rejected') => {
+    if (!isStaff) return;
+    const note = status === 'rejected' ? window.prompt('Red nedeni:') || '' : '';
+    try {
+      await updateDoc(doc(db, 'storeApplications', app.id), { status, reviewNote: note, reviewedBy: user?.uid, reviewedAt: serverTimestamp() });
+      if (status === 'approved' && app.userId) {
+        await updateDoc(doc(db, 'users', app.userId), { hasStore: true, storeApproved: true, storeLevel: 'standard' });
+        await setDoc(doc(db, 'stores', app.userId), { ownerId: app.userId, storeName: app.storeName || '', status: 'active', level: 'standard', badge: '', createdAt: serverTimestamp() }, { merge: true });
+      }
+      await logAction('store.review', 'storeApplications', app.id, { status, note });
+      toast.success('Magaza basvurusu guncellendi.');
+      loadAll();
+    } catch { toast.error('Guncelleme basarisiz.'); }
+  };
+
+  const updateStore = async (store: any, patch: any) => {
+    if (!isStaff) return;
+    try {
+      await updateDoc(doc(db, 'stores', store.id), { ...patch, updatedAt: serverTimestamp() });
+      await logAction('store.update', 'stores', store.id, patch);
+      toast.success('Magaza guncellendi.');
+      loadAll();
+    } catch { toast.error('Guncelleme basarisiz.'); }
+  };
+
+  const addCategory = async () => {
+    if (!isAdmin || !newCategoryName.trim()) return;
+    try {
+      await addDoc(collection(db, 'categories'), { name: newCategoryName.trim(), slug: newCategoryName.trim().toLowerCase().replace(/\s+/g, '-'), active: true, createdAt: serverTimestamp() });
+      await logAction('category.add', 'categories', 'new', { name: newCategoryName.trim() });
+      toast.success('Kategori eklendi.');
+      setNewCategoryName('');
+      loadAll();
+    } catch { toast.error('Kategori eklenemedi.'); }
+  };
+
+  const deleteCategory = async (cat: any) => {
+    if (!isAdmin) return;
+    if (!window.confirm(`"${cat.name}" kategorisini silmek istediginizden emin misiniz?`)) return;
+    try {
+      await updateDoc(doc(db, 'categories', cat.id), { active: false, deletedAt: serverTimestamp() });
+      await logAction('category.delete', 'categories', cat.id, { name: cat.name });
+      toast.success('Kategori silindi.');
+      loadAll();
+    } catch { toast.error('Kategori silinemedi.'); }
+  };
+
+  const sendSystemNotification = async () => {
+    if (!isAdmin || !notifTitle.trim() || !notifBody.trim()) return;
+    try {
+      await addDoc(collection(db, 'systemNotifications'), { title: notifTitle.trim(), body: notifBody.trim(), target: notifTarget, sentBy: user?.uid, sentAt: serverTimestamp(), read: [] });
+      await logAction('notification.send', 'systemNotifications', 'broadcast', { title: notifTitle.trim(), target: notifTarget });
+      toast.success('Bildirim gonderildi.');
+      setNotifTitle('');
+      setNotifBody('');
+      loadAll();
+    } catch { toast.error('Bildirim gonderilemedi.'); }
+  };
+
+  const addBannedWord = async () => {
+    if (!isAdmin || !newBannedWord.trim()) return;
+    try {
+      await setDoc(doc(db, 'siteSettings', 'bannedWords'), { words: [...bannedWords, newBannedWord.trim().toLowerCase()], updatedAt: serverTimestamp() }, { merge: true });
+      setBannedWords(prev => [...prev, newBannedWord.trim().toLowerCase()]);
+      await logAction('security.addBannedWord', 'siteSettings', 'bannedWords', { word: newBannedWord.trim() });
+      toast.success('Yasakli kelime eklendi.');
+      setNewBannedWord('');
+    } catch { toast.error('Eklenemedi.'); }
+  };
+
+  const removeBannedWord = async (word: string) => {
+    if (!isAdmin) return;
+    const updated = bannedWords.filter(w => w !== word);
+    try {
+      await setDoc(doc(db, 'siteSettings', 'bannedWords'), { words: updated, updatedAt: serverTimestamp() }, { merge: true });
+      setBannedWords(updated);
+      toast.success('Yasakli kelime kaldirildi.');
+    } catch { toast.error('Kaldirilamadi.'); }
+  };
+
+  const moderateReview = async (review: any, action: 'approved' | 'deleted') => {
+    if (!isStaff) return;
+    try {
+      await updateDoc(doc(db, 'reviews', review.id), { status: action, moderatedBy: user?.uid, moderatedAt: serverTimestamp() });
+      await logAction('review.moderate', 'reviews', review.id, { action });
+      toast.success('Yorum guncellendi.');
+      loadAll();
+    } catch { toast.error('Guncelleme basarisiz.'); }
+  };
+
+  const resolveReport = async (report: any, action: 'resolved' | 'dismissed') => {
+    if (!isStaff) return;
+    try {
+      await updateDoc(doc(db, 'reports', report.id), { status: action, resolvedBy: user?.uid, resolvedAt: serverTimestamp() });
+      await logAction('report.resolve', 'reports', report.id, { action });
+      toast.success('Rapor guncellendi.');
+      loadAll();
+    } catch { toast.error('Guncelleme basarisiz.'); }
+  };
+
+  const addUserNote = async (u: any) => {
+    if (!isStaff || !userNote.trim()) return;
+    const existingNotes = Array.isArray(u.adminNotes) ? u.adminNotes : [];
+    const newNote = { note: userNote.trim(), addedBy: user?.uid, addedAt: new Date().toISOString() };
+    try {
+      await updateDoc(doc(db, 'users', u.id), { adminNotes: [...existingNotes, newNote], updatedAt: serverTimestamp() });
+      await logAction('user.addNote', 'users', u.id, newNote);
+      toast.success('Not eklendi.');
+      setUserNote('');
+      loadAll();
+    } catch { toast.error('Not eklenemedi.'); }
+  };
+
+  const createCoupon = async () => {
+    const code = window.prompt('Kupon kodu:');
+    const discount = Number(window.prompt('Indirim orani (%):'));
+    if (!code || !discount) return;
+    try {
+      await addDoc(collection(db, 'coupons'), { code: code.trim().toUpperCase(), discount, type: 'percent', active: true, usedCount: 0, createdBy: user?.uid, createdAt: serverTimestamp() });
+      await logAction('coupon.create', 'coupons', 'new', { code, discount });
+      toast.success('Kupon olusturuldu.');
+    } catch { toast.error('Kupon olusturulamadi.'); }
+  };
+
   const saveSettings = async () => {
     if (!isStaff) return;
     try {
@@ -479,78 +665,122 @@ export default function AdminPanel() {
     );
   }
 
+  const sidebarGroups = [
+    {
+      label: 'GENEL',
+      items: [
+        { k: 'dashboard', label: 'Dashboard', icon: BarChart3 },
+        { k: 'reports', label: 'Raporlar', icon: TrendingUp },
+      ]
+    },
+    {
+      label: 'KULLANICILAR',
+      items: [
+        { k: 'users', label: 'Kullanicilar', icon: Users, badge: users.filter(u => u.kycStatus === 'pending').length },
+        { k: 'kyc', label: 'KYC / Kimlik', icon: FileCheck, badge: kycQueue.filter(k => k.status === 'pending').length },
+      ]
+    },
+    {
+      label: 'PAZAR',
+      items: [
+        { k: 'moderation', label: 'Ilan Moderasyon', icon: Package, badge: products.filter(p => p.moderationStatus === 'pending').length },
+        { k: 'orders', label: 'Siparisler', icon: ShoppingBag, badge: orders.filter(o => o.status === 'pending').length },
+        { k: 'reviews', label: 'Yorumlar', icon: Star },
+        { k: 'stores', label: 'Magazalar', icon: Store, badge: storeApplications.filter(s => s.status === 'pending').length },
+      ]
+    },
+    {
+      label: 'FİNANS',
+      items: [
+        { k: 'withdrawals', label: 'Cekim Talepleri', icon: Wallet, badge: withdrawals.filter(w => w.status === 'Beklemede').length },
+        { k: 'finance', label: 'Finans & Islemler', icon: CreditCard },
+      ]
+    },
+    {
+      label: 'DESTEK',
+      items: [
+        { k: 'support', label: 'Destek Ticketlari', icon: MessageSquare, badge: tickets.filter(t => t.status === 'open').length },
+        { k: 'disputes', label: 'Uyusmazliklar', icon: Gavel, badge: openDisputesCount },
+      ]
+    },
+    {
+      label: 'İÇERİK',
+      items: [
+        { k: 'categories', label: 'Kategoriler', icon: Layers },
+        { k: 'campaigns', label: 'Kampanya & Cekilis', icon: Gift },
+        { k: 'notifications', label: 'Bildirimler', icon: Bell },
+      ]
+    },
+    {
+      label: 'GÜVENLİK',
+      items: [
+        { k: 'security', label: 'Guvenlik & Raporlar', icon: Shield, badge: reportedContent.filter(r => r.status === 'pending').length },
+        { k: 'logs', label: 'Admin Loglari', icon: Activity },
+      ]
+    },
+    {
+      label: 'SİSTEM',
+      items: [
+        { k: 'settings', label: 'Site Ayarlari', icon: Settings },
+      ]
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-[#111218] pb-10">
-      {/* Header */}
-      <div className="bg-[#1a1b23] border-b border-white/10 sticky top-0 z-50">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-4">
-              <Shield className="w-8 h-8 text-[#5b68f6]" />
-              <h1 className="text-xl font-bold text-white">Admin Panel</h1>
-              <RoleBadge role={profile?.role || 'user'} />
-            </div>
-            <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="border-white/10 text-white hover:bg-white/5"
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-                Yenile
-              </Button>
-              <Link to="/">
-                <Button variant="outline" size="sm" className="border-white/10 text-white hover:bg-white/5">
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Siteye Don
-                </Button>
-              </Link>
-            </div>
-          </div>
+    <div className="min-h-screen bg-[#111218] flex flex-col">
+      {/* Top Header */}
+      <div className="bg-[#1a1b23] border-b border-white/10 sticky top-0 z-50 h-14 flex items-center px-4 gap-4">
+        <button onClick={() => setSidebarOpen(p => !p)} className="text-gray-400 hover:text-white transition-colors">
+          {sidebarOpen ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+        </button>
+        <Shield className="w-6 h-6 text-[#5b68f6]" />
+        <h1 className="text-lg font-bold text-white">Admin Panel</h1>
+        <RoleBadge role={profile?.role || 'user'} />
+        <div className="ml-auto flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing} className="border-white/10 text-white hover:bg-white/5">
+            <RefreshCw className={`w-4 h-4 mr-1 ${refreshing ? 'animate-spin' : ''}`} /> Yenile
+          </Button>
+          <Link to="/">
+            <Button variant="outline" size="sm" className="border-white/10 text-white hover:bg-white/5">
+              <LogOut className="w-4 h-4 mr-1" /> Siteye Don
+            </Button>
+          </Link>
         </div>
       </div>
 
-      {/* Navigation */}
-      <div className="bg-[#1a1b23]/50 border-b border-white/10">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
-          <ScrollArea className="w-full whitespace-nowrap">
-            <div className="flex gap-1 py-3">
-              {[
-                { k: 'dashboard', label: 'Dashboard', icon: BarChart3 },
-                { k: 'users', label: 'Kullanicilar', icon: Users, badge: users.filter(u => u.kycStatus === 'pending').length },
-                { k: 'withdrawals', label: 'Cekimler', icon: Wallet, badge: withdrawals.filter(w => w.status === 'Beklemede').length },
-                { k: 'moderation', label: 'Ilanlar', icon: Package, badge: products.filter(p => p.moderationStatus === 'pending').length },
-                { k: 'kyc', label: 'KYC', icon: FileCheck, badge: kycQueue.filter(k => k.status === 'pending').length },
-                { k: 'support', label: 'Destek', icon: MessageSquare, badge: tickets.filter(t => t.status === 'open').length },
-                { k: 'disputes', label: 'Uyusmazliklar', icon: Gavel, badge: openDisputesCount },
-                { k: 'giveaways', label: 'Cekilisler', icon: Gift },
-                { k: 'finance', label: 'Finans', icon: DollarSign },
-                { k: 'logs', label: 'Loglar', icon: Activity },
-                { k: 'settings', label: 'Ayarlar', icon: Settings },
-              ].map(({ k, label, icon: Icon, badge }: any) => (
-                <button
-                  key={k}
-                  onClick={() => setTabParam(k as TabKey)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                    tab === k ? 'bg-[#5b68f6] text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  {label}
-                  {badge > 0 && (
-                    <span className="ml-1 px-1.5 py-0.5 text-xs bg-red-500 text-white rounded-full">{badge}</span>
-                  )}
-                </button>
-              ))}
-            </div>
+      {/* Body */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar */}
+        <aside className={`${sidebarOpen ? 'w-56' : 'w-0 overflow-hidden'} bg-[#1a1b23] border-r border-white/10 flex-shrink-0 transition-all duration-200 flex flex-col`}>
+          <ScrollArea className="flex-1 py-3">
+            {sidebarGroups.map(group => (
+              <div key={group.label} className="mb-4">
+                <p className="text-[10px] font-semibold text-gray-500 px-4 mb-1 tracking-wider">{group.label}</p>
+                {group.items.map(({ k, label, icon: Icon, badge }: any) => (
+                  <button
+                    key={k}
+                    onClick={() => setTabParam(k as TabKey)}
+                    className={`w-full flex items-center gap-2.5 px-4 py-2 text-sm transition-all ${
+                      tab === k
+                        ? 'bg-[#5b68f6]/15 text-[#8b95ff] border-r-2 border-[#5b68f6]'
+                        : 'text-gray-400 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4 flex-shrink-0" />
+                    <span className="flex-1 text-left truncate">{label}</span>
+                    {badge > 0 && (
+                      <span className="px-1.5 py-0.5 text-[10px] bg-red-500 text-white rounded-full">{badge}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            ))}
           </ScrollArea>
-        </div>
-      </div>
+        </aside>
 
       {/* Main Content */}
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="flex-1 overflow-auto">
+      <div className="p-6">
         {loadingData ? (
           <div className="flex items-center justify-center py-20">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#5b68f6]"></div>
@@ -874,9 +1104,14 @@ export default function AdminPanel() {
                                 <Badge variant="outline" className="bg-amber-500/10 text-amber-400">{t.category}</Badge>
                               </div>
                             </div>
-                            <Button size="sm" className="bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20" onClick={() => closeTicket(t)}>
-                              <CheckCircle className="w-4 h-4 mr-1" /> Kapat
-                            </Button>
+                            <div className="flex gap-2">
+                              <Button size="sm" className="bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20" onClick={() => { setSelectedTicket(t); setTicketReplyOpen(true); }}>
+                                <MessageSquare className="w-4 h-4 mr-1" /> Cevap Ver
+                              </Button>
+                              <Button size="sm" className="bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20" onClick={() => closeTicket(t)}>
+                                <CheckCircle className="w-4 h-4 mr-1" /> Kapat
+                              </Button>
+                            </div>
                           </div>
                         </CardContent>
                       </Card>
@@ -1065,6 +1300,473 @@ export default function AdminPanel() {
               </Card>
             )}
 
+            {/* ORDERS TAB */}
+            {tab === 'orders' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold text-white">Sipariş Yönetimi</h2>
+                  <Select value={orderFilter} onValueChange={setOrderFilter}>
+                    <SelectTrigger className="w-40 bg-[#1a1b23] border-white/10"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tümü</SelectItem>
+                      <SelectItem value="pending">Bekleyen</SelectItem>
+                      <SelectItem value="completed">Tamamlanan</SelectItem>
+                      <SelectItem value="cancelled">İptal</SelectItem>
+                      <SelectItem value="disputed">İhtilaf</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <StatCard title="Toplam Sipariş" value={orders.length} icon={ShoppingBag} color="blue" />
+                  <StatCard title="Bekleyen" value={orders.filter(o=>o.status==='pending').length} icon={Inbox} color="amber" />
+                  <StatCard title="Tamamlanan" value={orders.filter(o=>o.status==='completed').length} icon={CheckCircle} color="green" />
+                  <StatCard title="İhtilaf" value={orders.filter(o=>o.status==='disputed').length} icon={AlertTriangle} color="red" />
+                </div>
+                <Card className="bg-[#1a1b23] border-white/10">
+                  <CardContent className="p-0">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-white/10">
+                          <TableHead className="text-gray-400">Sipariş ID</TableHead>
+                          <TableHead className="text-gray-400">Alıcı</TableHead>
+                          <TableHead className="text-gray-400">Satıcı</TableHead>
+                          <TableHead className="text-gray-400">Tutar</TableHead>
+                          <TableHead className="text-gray-400">Durum</TableHead>
+                          <TableHead className="text-gray-400">Tarih</TableHead>
+                          <TableHead className="text-gray-400 text-right">İşlem</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {orders.filter(o => orderFilter === 'all' || o.status === orderFilter).map(o => (
+                          <TableRow key={o.id} className="border-white/10">
+                            <TableCell className="text-gray-400 font-mono text-xs">{o.id.slice(0,10)}...</TableCell>
+                            <TableCell className="text-white">{o.buyerId?.slice(0,8) || '-'}</TableCell>
+                            <TableCell className="text-white">{o.sellerId?.slice(0,8) || '-'}</TableCell>
+                            <TableCell className="text-white font-medium">{(Number(o.amount||o.total)||0).toFixed(2)} TL</TableCell>
+                            <TableCell><StatusBadge status={o.status || 'pending'} /></TableCell>
+                            <TableCell className="text-gray-400 text-sm">{o.createdAt?.toDate?.() ? format(o.createdAt.toDate(), 'dd.MM.yy HH:mm', {locale:tr}) : '-'}</TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex gap-1 justify-end">
+                                {o.status === 'pending' && <Button size="sm" className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20" onClick={() => updateOrderStatus(o,'completed')}><CheckCircle className="w-3 h-3 mr-1"/>Tamamla</Button>}
+                                {o.status === 'pending' && <Button size="sm" variant="outline" className="border-red-500/20 text-red-400 hover:bg-red-500/10" onClick={() => updateOrderStatus(o,'cancelled')}><XCircle className="w-3 h-3 mr-1"/>İptal</Button>}
+                                {o.status === 'disputed' && <Button size="sm" className="bg-amber-500/10 text-amber-400 border border-amber-500/20" onClick={() => updateOrderStatus(o,'resolved')}><Gavel className="w-3 h-3 mr-1"/>Çöz</Button>}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    {orders.filter(o => orderFilter === 'all' || o.status === orderFilter).length === 0 && <p className="text-center py-10 text-gray-400">Sipariş bulunamadı.</p>}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* STORES TAB */}
+            {tab === 'stores' && (
+              <div className="space-y-6">
+                <h2 className="text-xl font-bold text-white">Mağaza Yönetimi</h2>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Store Applications */}
+                  <Card className="bg-[#1a1b23] border-white/10">
+                    <CardHeader>
+                      <CardTitle className="text-white flex items-center gap-2"><Inbox className="w-5 h-5 text-amber-400"/>Bekleyen Başvurular <span className="ml-1 px-2 py-0.5 text-xs bg-red-500 text-white rounded-full">{storeApplications.filter(s=>s.status==='pending').length}</span></CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {storeApplications.filter(s=>s.status==='pending').map(app => (
+                        <div key={app.id} className="p-4 rounded-lg bg-[#111218] border border-white/10">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-white font-medium">{app.storeName || 'İsimsiz Mağaza'}</p>
+                              <p className="text-xs text-gray-400 mt-0.5">Kullanıcı: {app.userId?.slice(0,8)}</p>
+                              <p className="text-xs text-gray-500 mt-1">{app.description?.slice(0,80)}</p>
+                            </div>
+                            <div className="flex gap-1.5 flex-shrink-0">
+                              <Button size="sm" className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20" onClick={() => approveStore(app,'approved')}><CheckCircle className="w-3 h-3 mr-1"/>Onayla</Button>
+                              <Button size="sm" variant="outline" className="border-red-500/20 text-red-400 hover:bg-red-500/10" onClick={() => approveStore(app,'rejected')}><XCircle className="w-3 h-3 mr-1"/>Reddet</Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      {storeApplications.filter(s=>s.status==='pending').length === 0 && <p className="text-center py-6 text-gray-400 text-sm">Bekleyen başvuru yok.</p>}
+                    </CardContent>
+                  </Card>
+                  {/* Active Stores */}
+                  <Card className="bg-[#1a1b23] border-white/10">
+                    <CardHeader>
+                      <CardTitle className="text-white flex items-center gap-2"><Store className="w-5 h-5 text-blue-400"/>Aktif Mağazalar ({stores.length})</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <ScrollArea className="h-[350px]">
+                        {stores.map(s => (
+                          <div key={s.id} className="p-3 rounded-lg bg-[#111218] border border-white/5 mb-2">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-white font-medium">{s.storeName || s.id.slice(0,8)}</p>
+                                <div className="flex gap-2 mt-1">
+                                  <StatusBadge status={s.status || 'active'} />
+                                  <span className="text-xs text-gray-500">Seviye: {s.level || 'standart'}</span>
+                                </div>
+                              </div>
+                              <div className="flex gap-1">
+                                {s.status !== 'suspended' && <Button size="sm" variant="outline" className="border-red-500/20 text-red-400 hover:bg-red-500/10" onClick={() => updateStore(s,{status:'suspended'})}><Ban className="w-3 h-3"/></Button>}
+                                {s.status === 'suspended' && <Button size="sm" className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" onClick={() => updateStore(s,{status:'active'})}><CheckCircle className="w-3 h-3"/></Button>}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        {stores.length === 0 && <p className="text-center py-6 text-gray-400 text-sm">Henüz mağaza yok.</p>}
+                      </ScrollArea>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            )}
+
+            {/* CAMPAIGNS TAB */}
+            {tab === 'campaigns' && (
+              <div className="space-y-6">
+                <h2 className="text-xl font-bold text-white">Kampanya & Çekiliş</h2>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Giveaways */}
+                  <Card className="bg-[#1a1b23] border-white/10">
+                    <CardHeader className="flex flex-row items-center justify-between">
+                      <CardTitle className="text-white flex items-center gap-2"><Gift className="w-5 h-5 text-purple-400"/>Çekilişler</CardTitle>
+                      <Button size="sm" className="bg-[#5b68f6] hover:bg-[#5b68f6]/90" onClick={createGiveaway}><Plus className="w-4 h-4 mr-1"/>Yeni</Button>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {giveaways.map(g => (
+                        <div key={g.id} className="p-4 rounded-lg bg-[#111218] border border-white/10">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-white font-medium">{g.title}</p>
+                              <p className="text-sm text-gray-400">Ödül: {g.prize}</p>
+                              <p className="text-xs text-gray-500 mt-0.5">Katılımcı: {(g.participants||[]).length}</p>
+                            </div>
+                            <div className="flex gap-2">
+                              <StatusBadge status={g.status || 'active'} />
+                              {g.status === 'active' && !g.winner && <Button size="sm" className="bg-purple-500/10 text-purple-400 border border-purple-500/20" onClick={() => pickGiveawayWinner(g)}><Award className="w-3 h-3 mr-1"/>Seç</Button>}
+                              {g.winner && <span className="text-xs text-emerald-400">🏆 {g.winner.slice(0,8)}</span>}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      {giveaways.length === 0 && <p className="text-center py-6 text-gray-400 text-sm">Henüz çekiliş yok.</p>}
+                    </CardContent>
+                  </Card>
+                  {/* Coupon Codes */}
+                  <Card className="bg-[#1a1b23] border-white/10">
+                    <CardHeader className="flex flex-row items-center justify-between">
+                      <CardTitle className="text-white flex items-center gap-2"><Percent className="w-5 h-5 text-amber-400"/>Kupon Kodları</CardTitle>
+                      <Button size="sm" className="bg-[#5b68f6] hover:bg-[#5b68f6]/90" onClick={createCoupon}><Plus className="w-4 h-4 mr-1"/>Yeni</Button>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="p-6 text-center text-gray-400 border border-dashed border-white/10 rounded-lg">
+                        <Percent className="w-8 h-8 mx-auto mb-2 text-gray-600" />
+                        <p className="text-sm">Kupon kodları Firebase'de <span className="text-white font-mono">coupons</span> koleksiyonunda saklanır.</p>
+                        <Button className="mt-3 bg-amber-500/10 text-amber-400 border border-amber-500/20" onClick={createCoupon}><Plus className="w-4 h-4 mr-1"/>Kupon Oluştur</Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            )}
+
+            {/* CATEGORIES TAB */}
+            {tab === 'categories' && (
+              <div className="space-y-6">
+                <h2 className="text-xl font-bold text-white">Kategori Yönetimi</h2>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <Card className="bg-[#1a1b23] border-white/10">
+                    <CardHeader><CardTitle className="text-white">Yeni Kategori</CardTitle></CardHeader>
+                    <CardContent className="space-y-4">
+                      <Input value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} placeholder="Kategori adı..." className="bg-[#111218] border-white/10 text-white" />
+                      <Button className="w-full bg-[#5b68f6] hover:bg-[#5b68f6]/90" onClick={addCategory} disabled={!isAdmin}><Plus className="w-4 h-4 mr-2"/>Ekle</Button>
+                      {!isAdmin && <p className="text-xs text-gray-500 text-center">Sadece admin ekleyebilir.</p>}
+                    </CardContent>
+                  </Card>
+                  <div className="lg:col-span-2">
+                    <Card className="bg-[#1a1b23] border-white/10">
+                      <CardHeader><CardTitle className="text-white">Mevcut Kategoriler ({categories.filter(c=>c.active!==false).length})</CardTitle></CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {categories.filter(c=>c.active!==false).map(cat => (
+                            <div key={cat.id} className="flex items-center justify-between p-3 rounded-lg bg-[#111218] border border-white/5">
+                              <div className="flex items-center gap-2">
+                                <Tag className="w-4 h-4 text-[#5b68f6]" />
+                                <span className="text-white text-sm">{cat.name}</span>
+                              </div>
+                              <div className="flex gap-1">
+                                <Button size="sm" variant="outline" className="border-red-500/20 text-red-400 hover:bg-red-500/10 h-7 w-7 p-0" onClick={() => deleteCategory(cat)} disabled={!isAdmin}><Trash2 className="w-3 h-3"/></Button>
+                              </div>
+                            </div>
+                          ))}
+                          {categories.filter(c=>c.active!==false).length === 0 && <p className="text-gray-400 text-sm col-span-2 text-center py-8">Henüz kategori yok.</p>}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* NOTIFICATIONS TAB */}
+            {tab === 'notifications' && (
+              <div className="space-y-6">
+                <h2 className="text-xl font-bold text-white">Bildirim Yönetimi</h2>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <Card className="bg-[#1a1b23] border-white/10">
+                    <CardHeader><CardTitle className="text-white flex items-center gap-2"><Megaphone className="w-5 h-5 text-[#5b68f6]"/>Sistem Bildirimi Gönder</CardTitle></CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <Label className="text-white">Başlık</Label>
+                        <Input value={notifTitle} onChange={e=>setNotifTitle(e.target.value)} placeholder="Bildirim başlığı..." className="bg-[#111218] border-white/10 text-white" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-white">İçerik</Label>
+                        <Textarea value={notifBody} onChange={e=>setNotifBody(e.target.value)} placeholder="Bildirim içeriği..." rows={4} className="bg-[#111218] border-white/10 text-white" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-white">Hedef Kitle</Label>
+                        <Select value={notifTarget} onValueChange={setNotifTarget}>
+                          <SelectTrigger className="bg-[#111218] border-white/10"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Tüm Kullanıcılar</SelectItem>
+                            <SelectItem value="sellers">Satıcılar</SelectItem>
+                            <SelectItem value="buyers">Alıcılar</SelectItem>
+                            <SelectItem value="verified">Doğrulanmış</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button className="w-full bg-[#5b68f6] hover:bg-[#5b68f6]/90" onClick={sendSystemNotification} disabled={!isAdmin || !notifTitle.trim() || !notifBody.trim()}><Bell className="w-4 h-4 mr-2"/>Gönder</Button>
+                      {!isAdmin && <p className="text-xs text-gray-500 text-center">Sadece admin gönderebilir.</p>}
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-[#1a1b23] border-white/10">
+                    <CardHeader><CardTitle className="text-white">Son Bildirimler</CardTitle></CardHeader>
+                    <CardContent>
+                      <ScrollArea className="h-[350px]">
+                        <div className="space-y-2">
+                          {systemNotifications.map(n => (
+                            <div key={n.id} className="p-3 rounded-lg bg-[#111218] border border-white/5">
+                              <p className="text-white font-medium text-sm">{n.title}</p>
+                              <p className="text-gray-400 text-xs mt-1">{n.body?.slice(0,80)}</p>
+                              <div className="flex items-center justify-between mt-2">
+                                <span className="text-xs text-gray-600">Hedef: {n.target || 'all'}</span>
+                                <span className="text-xs text-gray-600">{n.sentAt?.toDate?.() ? format(n.sentAt.toDate(), 'dd.MM.yy HH:mm', {locale:tr}) : '-'}</span>
+                              </div>
+                            </div>
+                          ))}
+                          {systemNotifications.length === 0 && <p className="text-center py-8 text-gray-400 text-sm">Henüz bildirim gönderilmedi.</p>}
+                        </div>
+                      </ScrollArea>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            )}
+
+            {/* SECURITY TAB */}
+            {tab === 'security' && (
+              <div className="space-y-6">
+                <h2 className="text-xl font-bold text-white">Güvenlik & Moderasyon</h2>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Reported Content */}
+                  <div className="lg:col-span-2">
+                    <Card className="bg-[#1a1b23] border-white/10">
+                      <CardHeader>
+                        <CardTitle className="text-white flex items-center gap-2">
+                          <Flag className="w-5 h-5 text-red-400"/>Raporlanan İçerikler
+                          <span className="px-2 py-0.5 text-xs bg-red-500 text-white rounded-full">{reportedContent.filter(r=>r.status==='pending').length}</span>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {reportedContent.map(r => (
+                          <div key={r.id} className="p-4 rounded-lg bg-[#111218] border border-white/10">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <StatusBadge status={r.status || 'pending'} />
+                                  <span className="text-xs text-gray-500">{r.type || 'içerik'}</span>
+                                </div>
+                                <p className="text-white text-sm">{r.reason || 'Neden belirtilmedi'}</p>
+                                <p className="text-gray-500 text-xs mt-1">Rapor eden: {r.reporterId?.slice(0,8) || '-'} • Hedef: {r.targetId?.slice(0,8) || '-'}</p>
+                              </div>
+                              {r.status === 'pending' && (
+                                <div className="flex gap-1 flex-shrink-0">
+                                  <Button size="sm" className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" onClick={() => resolveReport(r,'resolved')}><CheckCircle className="w-3 h-3"/></Button>
+                                  <Button size="sm" variant="outline" className="border-gray-500/20 text-gray-400" onClick={() => resolveReport(r,'dismissed')}><XCircle className="w-3 h-3"/></Button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                        {reportedContent.length === 0 && <p className="text-center py-8 text-gray-400 text-sm">Rapor yok.</p>}
+                      </CardContent>
+                    </Card>
+                  </div>
+                  {/* Banned Words */}
+                  <Card className="bg-[#1a1b23] border-white/10">
+                    <CardHeader><CardTitle className="text-white flex items-center gap-2"><Hash className="w-5 h-5 text-orange-400"/>Yasaklı Kelimeler</CardTitle></CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex gap-2">
+                        <Input value={newBannedWord} onChange={e=>setNewBannedWord(e.target.value)} placeholder="Kelime..." className="bg-[#111218] border-white/10 text-white" onKeyDown={e=>e.key==='Enter'&&addBannedWord()} />
+                        <Button className="bg-[#5b68f6] hover:bg-[#5b68f6]/90 px-3" onClick={addBannedWord} disabled={!isAdmin}><Plus className="w-4 h-4"/></Button>
+                      </div>
+                      <ScrollArea className="h-[280px]">
+                        <div className="flex flex-wrap gap-2">
+                          {bannedWords.map(word => (
+                            <div key={word} className="flex items-center gap-1 px-2 py-1 bg-red-500/10 border border-red-500/20 rounded-full">
+                              <span className="text-red-400 text-xs">{word}</span>
+                              <button onClick={() => removeBannedWord(word)} className="text-red-400 hover:text-red-300 ml-0.5"><XCircle className="w-3 h-3"/></button>
+                            </div>
+                          ))}
+                          {bannedWords.length === 0 && <p className="text-gray-400 text-sm w-full text-center py-4">Yasaklı kelime yok.</p>}
+                        </div>
+                      </ScrollArea>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            )}
+
+            {/* REVIEWS TAB */}
+            {tab === 'reviews' && (
+              <div className="space-y-4">
+                <h2 className="text-xl font-bold text-white">Yorum & Puan Yönetimi</h2>
+                <Card className="bg-[#1a1b23] border-white/10">
+                  <CardContent className="p-0">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-white/10">
+                          <TableHead className="text-gray-400">Kullanıcı</TableHead>
+                          <TableHead className="text-gray-400">Hedef</TableHead>
+                          <TableHead className="text-gray-400">Puan</TableHead>
+                          <TableHead className="text-gray-400">Yorum</TableHead>
+                          <TableHead className="text-gray-400">Durum</TableHead>
+                          <TableHead className="text-gray-400 text-right">İşlem</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {reviews.map(r => (
+                          <TableRow key={r.id} className="border-white/10">
+                            <TableCell className="text-white">{r.reviewerId?.slice(0,8) || '-'}</TableCell>
+                            <TableCell className="text-white">{r.targetId?.slice(0,8) || r.productId?.slice(0,8) || '-'}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                                <span className="text-white text-sm">{r.rating || '-'}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-gray-400 text-sm max-w-[200px] truncate">{r.comment || r.text || '-'}</TableCell>
+                            <TableCell><StatusBadge status={r.status || 'active'} /></TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex gap-1 justify-end">
+                                {r.status !== 'deleted' && <Button size="sm" variant="outline" className="border-red-500/20 text-red-400 hover:bg-red-500/10" onClick={() => moderateReview(r,'deleted')}><Trash2 className="w-3 h-3"/></Button>}
+                                {r.status === 'deleted' && <Button size="sm" className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" onClick={() => moderateReview(r,'approved')}><CheckCircle className="w-3 h-3"/></Button>}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    {reviews.length === 0 && <p className="text-center py-10 text-gray-400">Henüz yorum yok.</p>}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* REPORTS TAB */}
+            {tab === 'reports' && (
+              <div className="space-y-6">
+                <h2 className="text-xl font-bold text-white">Raporlama & Analiz</h2>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <StatCard title="Toplam Kullanıcı" value={users.length} icon={Users} color="blue" />
+                  <StatCard title="Toplam İlan" value={products.length} icon={Package} color="purple" />
+                  <StatCard title="Toplam Sipariş" value={orders.length} icon={ShoppingBag} color="green" />
+                  <StatCard title="Toplam İşlem" value={transactions.length} icon={CreditCard} color="amber" />
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <Card className="bg-[#1a1b23] border-white/10">
+                    <CardHeader><CardTitle className="text-white">Kullanıcı Büyüme Trendi</CardTitle></CardHeader>
+                    <CardContent>
+                      <ResponsiveContainer width="100%" height={220}>
+                        <AreaChart data={[
+                          ...Array.from({length:7},(_,i)=>{
+                            const d = new Date(); d.setDate(d.getDate()-6+i);
+                            const label = format(d,'dd.MM',{locale:tr});
+                            const count = users.filter(u => { try { const cd = u.createdAt?.toDate?.(); return cd && format(cd,'dd.MM',{locale:tr}) === label; } catch { return false; } }).length;
+                            return {label, count};
+                          })
+                        ]} margin={{top:5,right:10,left:-10,bottom:0}}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
+                          <XAxis dataKey="label" tick={{fill:'#9ca3af',fontSize:11}} />
+                          <YAxis tick={{fill:'#9ca3af',fontSize:11}} />
+                          <Tooltip contentStyle={{background:'#1a1b23',border:'1px solid rgba(255,255,255,0.1)',borderRadius:'8px',color:'#fff'}} />
+                          <Area type="monotone" dataKey="count" stroke="#5b68f6" fill="#5b68f620" strokeWidth={2} name="Yeni Kullanıcı" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-[#1a1b23] border-white/10">
+                    <CardHeader><CardTitle className="text-white">Sipariş Durumu Dağılımı</CardTitle></CardHeader>
+                    <CardContent>
+                      <ResponsiveContainer width="100%" height={220}>
+                        <BarChart data={[
+                          {name:'Bekleyen', value: orders.filter(o=>o.status==='pending').length},
+                          {name:'Tamamlanan', value: orders.filter(o=>o.status==='completed').length},
+                          {name:'İptal', value: orders.filter(o=>o.status==='cancelled').length},
+                          {name:'İhtilaf', value: orders.filter(o=>o.status==='disputed').length},
+                        ]} margin={{top:5,right:10,left:-10,bottom:0}}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
+                          <XAxis dataKey="name" tick={{fill:'#9ca3af',fontSize:11}} />
+                          <YAxis tick={{fill:'#9ca3af',fontSize:11}} />
+                          <Tooltip contentStyle={{background:'#1a1b23',border:'1px solid rgba(255,255,255,0.1)',borderRadius:'8px',color:'#fff'}} />
+                          <Bar dataKey="value" fill="#5b68f6" radius={[4,4,0,0]} name="Sipariş" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-[#1a1b23] border-white/10">
+                    <CardHeader><CardTitle className="text-white">En Aktif Kategoriler</CardTitle></CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {Array.from(products.reduce((acc,p)=>{const k=p.category||'Diğer';acc.set(k,(acc.get(k)||0)+1);return acc;},new Map<string,number>())).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([cat,count])=>(
+                          <div key={cat} className="flex items-center gap-3">
+                            <span className="text-gray-400 text-sm flex-1 truncate">{cat}</span>
+                            <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
+                              <div className="h-full bg-[#5b68f6] rounded-full" style={{width:`${Math.min(100,(count/Math.max(products.length,1))*100*5)}%`}} />
+                            </div>
+                            <span className="text-white text-sm w-8 text-right">{count}</span>
+                          </div>
+                        ))}
+                        {products.length === 0 && <p className="text-gray-400 text-sm text-center py-4">Veri yok.</p>}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-[#1a1b23] border-white/10">
+                    <CardHeader><CardTitle className="text-white">Finansal Özet</CardTitle></CardHeader>
+                    <CardContent className="space-y-4">
+                      {[
+                        {label:'Toplam İşlem Hacmi', value: transactions.reduce((s,t)=>s+Math.abs(Number(t.amount||0)),0).toFixed(2)+' TL', icon: TrendingUp, color:'text-emerald-400'},
+                        {label:'Bekleyen Çekim', value: withdrawals.filter(w=>w.status==='Beklemede').reduce((s,w)=>s+Number(w.amount||0),0).toFixed(2)+' TL', icon: Wallet, color:'text-amber-400'},
+                        {label:'Onaylanan Çekim', value: withdrawals.filter(w=>w.status==='Onaylandi').reduce((s,w)=>s+Number(w.amount||0),0).toFixed(2)+' TL', icon: CheckCircle, color:'text-blue-400'},
+                        {label:'İptal Edilen Sipariş', value: orders.filter(o=>o.status==='cancelled').length+' adet', icon: XCircle, color:'text-red-400'},
+                      ].map(({label,value,icon:Icon,color})=>(
+                        <div key={label} className="flex items-center justify-between p-3 rounded-lg bg-[#111218]">
+                          <div className="flex items-center gap-2">
+                            <Icon className={`w-4 h-4 ${color}`} />
+                            <span className="text-gray-400 text-sm">{label}</span>
+                          </div>
+                          <span className={`font-medium ${color}`}>{value}</span>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            )}
+
             {/* SETTINGS TAB */}
             {tab === 'settings' && (
               <Card className="bg-[#1a1b23] border-white/10">
@@ -1117,6 +1819,8 @@ export default function AdminPanel() {
             )}
           </div>
         )}
+      </div>
+      </div>
       </div>
 
       {/* User Detail Modal */}
@@ -1174,6 +1878,33 @@ export default function AdminPanel() {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setUserModalOpen(false)} className="border-white/10 text-white hover:bg-white/5">Kapat</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Ticket Reply Modal */}
+      <Dialog open={ticketReplyOpen} onOpenChange={setTicketReplyOpen}>
+        <DialogContent className="bg-[#1a1b23] border-white/10 text-white max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Ticket'a Cevap Ver</DialogTitle>
+            <DialogDescription className="text-gray-400">{selectedTicket?.subject}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="p-3 rounded-lg bg-[#111218] border border-white/10">
+              <p className="text-sm text-gray-400 mb-1">Kullanıcı Mesajı:</p>
+              <p className="text-white text-sm">{selectedTicket?.description}</p>
+            </div>
+            <Textarea
+              value={ticketReply}
+              onChange={e => setTicketReply(e.target.value)}
+              placeholder="Cevabınızı yazın..."
+              rows={5}
+              className="bg-[#111218] border-white/10 text-white"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTicketReplyOpen(false)} className="border-white/10 text-white hover:bg-white/5">İptal</Button>
+            <Button onClick={replyToTicket} disabled={!ticketReply.trim()} className="bg-[#5b68f6] hover:bg-[#5b68f6]/90">Gönder</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
