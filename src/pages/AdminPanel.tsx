@@ -1,0 +1,993 @@
+import { useEffect, useMemo, useState } from 'react';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { db } from '../firebase';
+import {
+  addDoc, collection, doc, getDoc, getDocs, limit, orderBy, query,
+  serverTimestamp, setDoc, updateDoc, where
+} from 'firebase/firestore';
+import toast from 'react-hot-toast';
+import {
+  Card, CardContent, CardDescription, CardHeader, CardTitle
+} from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Badge } from '../components/ui/badge';
+import {
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter
+} from '../components/ui/dialog';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
+} from '../components/ui/select';
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow
+} from '../components/ui/table';
+import { ScrollArea } from '../components/ui/scroll-area';
+import { Textarea } from '../components/ui/textarea';
+import { Switch } from '../components/ui/switch';
+import { Label } from '../components/ui/label';
+import { format } from 'date-fns';
+import { tr } from 'date-fns/locale';
+import {
+  Users, DollarSign, ShoppingCart, Package, FileCheck, Search,
+  RefreshCw, LogOut, Shield, Wallet, MessageSquare, Gift,
+  BarChart3, Activity, Settings, CheckCircle, XCircle, Filter,
+  TrendingUp, TrendingDown, Eye, Ban, UserCheck, Gavel,
+  ChevronLeft, ChevronRight, Edit, Plus, Calendar
+} from 'lucide-react';
+
+type TabKey = 'dashboard' | 'withdrawals' | 'support' | 'moderation' | 'kyc' | 'users' | 'disputes' | 'finance' | 'logs' | 'settings' | 'giveaways';
+
+// Status Badge Component
+const StatusBadge = ({ status }: { status: string }) => {
+  const variants: Record<string, string> = {
+    active: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+    pending: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+    banned: 'bg-red-500/10 text-red-400 border-red-500/20',
+    frozen: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+    verified: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+    rejected: 'bg-red-500/10 text-red-400 border-red-500/20',
+    completed: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+    open: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+    closed: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
+  };
+  const normalizedStatus = status?.toLowerCase() || 'pending';
+  return (
+    <Badge variant="outline" className={variants[normalizedStatus] || variants.pending}>
+      {status?.toUpperCase()}
+    </Badge>
+  );
+};
+
+// Role Badge Component
+const RoleBadge = ({ role }: { role: string }) => {
+  const variants: Record<string, string> = {
+    admin: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+    moderator: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+    user: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
+  };
+  return (
+    <Badge variant="outline" className={variants[role] || variants.user}>
+      {role?.toUpperCase()}
+    </Badge>
+  );
+};
+
+// Stat Card Component
+const StatCard = ({ title, value, icon: Icon, color }: { title: string; value: string | number; icon: any; color: string }) => (
+  <Card className="bg-[#1a1b23] border-white/10">
+    <CardContent className="p-6">
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <p className="text-sm text-gray-400">{title}</p>
+          <p className="text-2xl font-bold text-white">{value}</p>
+        </div>
+        <div className="p-3 rounded-xl bg-white/5">
+          <Icon className="w-6 h-6 text-white" />
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+);
+
+export default function AdminPanel() {
+  const { user, profile, loading } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [tab, setTab] = useState<TabKey>((searchParams.get('tab') as TabKey) || 'dashboard');
+
+  // Data states
+  const [withdrawals, setWithdrawals] = useState<any[]>([]);
+  const [tickets, setTickets] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [kycQueue, setKycQueue] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [disputes, setDisputes] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [adminLogs, setAdminLogs] = useState<any[]>([]);
+  const [giveaways, setGiveaways] = useState<any[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Filters
+  const [userFilter, setUserFilter] = useState({ role: 'all', status: 'all', search: '' });
+  const [withdrawalFilter, setWithdrawalFilter] = useState('all');
+
+  // Modal states
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [userModalOpen, setUserModalOpen] = useState(false);
+
+  // Site Settings
+  const [siteSettings, setSiteSettings] = useState<any>({
+    maintenanceMode: false,
+    maintenanceMessage: '',
+    topBarMessage: '',
+    floatingChatEnabled: true,
+    banners: [
+      { label: 'PUBG MOBILE', text: 'RP A18 Simdi Oyunda!', accent: 'amber', active: true },
+      { label: 'Valorant', text: 'Karacali Koleksiyonu Simdi Oyunda', accent: 'red', active: true },
+    ],
+    heroSlides: [],
+  });
+
+  const isStaff = profile?.role === 'admin' || profile?.role === 'moderator';
+  const isAdmin = profile?.role === 'admin';
+
+  // Load all data
+  const loadAll = async () => {
+    if (!user || !isStaff) return;
+    setLoadingData(true);
+    try {
+      const [
+        wdSnap, ticketSnap, productSnap, kycSnap, userSnap,
+        disputeSnap, txSnap, logSnap, giveawaySnap
+      ] = await Promise.all([
+        getDocs(query(collection(db, 'withdrawals'), orderBy('createdAt', 'desc'), limit(100))),
+        getDocs(query(collection(db, 'supportTickets'), orderBy('createdAt', 'desc'), limit(100))),
+        getDocs(query(collection(db, 'products'), orderBy('createdAt', 'desc'), limit(100))),
+        getDocs(query(collection(db, 'kycRequests'), orderBy('createdAt', 'desc'), limit(100))),
+        getDocs(query(collection(db, 'users'), orderBy('createdAt', 'desc'), limit(100))),
+        getDocs(query(collection(db, 'disputes'), orderBy('createdAt', 'desc'), limit(100))),
+        getDocs(query(collection(db, 'transactions'), orderBy('createdAt', 'desc'), limit(200))),
+        getDocs(query(collection(db, 'adminLogs'), orderBy('createdAt', 'desc'), limit(200))),
+        getDocs(query(collection(db, 'giveaways'), orderBy('createdAt', 'desc'), limit(50))),
+      ]);
+
+      setWithdrawals(wdSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setTickets(ticketSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setProducts(productSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setKycQueue(kycSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setUsers(userSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setDisputes(disputeSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setTransactions(txSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setAdminLogs(logSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setGiveaways(giveawaySnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    } catch {
+      toast.error('Admin verileri yuklenemedi.');
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAll();
+  }, [user, profile?.role]);
+
+  // Load settings
+  useEffect(() => {
+    const loadSettings = async () => {
+      if (!user || !isStaff) return;
+      try {
+        const ref = doc(db, 'siteSettings', 'global');
+        const snap = await getDoc(ref);
+        if (snap.exists()) setSiteSettings((prev: any) => ({ ...prev, ...(snap.data() as any) }));
+      } catch { /* no-op */ }
+    };
+    loadSettings();
+  }, [user, profile?.role]);
+
+  // Helper functions
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadAll();
+    setRefreshing(false);
+    toast.success('Veriler yenilendi');
+  };
+
+  const logAction = async (action: string, entity: string, entityId: string, details?: any) => {
+    if (!user) return;
+    await addDoc(collection(db, 'adminLogs'), {
+      actorId: user.uid,
+      actorRole: profile?.role || 'unknown',
+      action,
+      entity,
+      entityId,
+      details: details || {},
+      createdAt: serverTimestamp(),
+    });
+  };
+
+  const updateWithdrawalStatus = async (row: any, status: 'Onaylandi' | 'Reddedildi') => {
+    if (!isStaff) return;
+    const rejectionReason = status === 'Reddedildi' ? window.prompt('Red nedeni girin:') || '' : '';
+    try {
+      await updateDoc(doc(db, 'withdrawals', row.id), {
+        status,
+        rejectionReason,
+        processedBy: user?.uid || '',
+        processedAt: serverTimestamp(),
+      });
+      await logAction('withdrawal.updateStatus', 'withdrawals', row.id, { status, rejectionReason });
+      toast.success('Cekim durumu guncellendi.');
+      loadAll();
+    } catch {
+      toast.error('Cekim islemi guncellenemedi.');
+    }
+  };
+
+  const updateUser = async (u: any, patch: any, action: string) => {
+    if (!isStaff) return;
+    try {
+      await updateDoc(doc(db, 'users', u.id), { ...patch, updatedAt: serverTimestamp() });
+      await logAction(action, 'users', u.id, patch);
+      toast.success('Kullanici kaydi guncellendi.');
+      loadAll();
+    } catch {
+      toast.error('Kullanici guncellemesi basarisiz.');
+    }
+  };
+
+  const reviewKyc = async (request: any, status: 'verified' | 'rejected' | 'needs_more_documents') => {
+    if (!isStaff) return;
+    const note = status !== 'verified' ? window.prompt('Inceleme notu girin:') || '' : '';
+    try {
+      await updateDoc(doc(db, 'kycRequests', request.id), {
+        status,
+        reviewedBy: user?.uid || '',
+        reviewNote: note,
+        reviewedAt: serverTimestamp(),
+      });
+      await updateDoc(doc(db, 'users', request.userId), {
+        kycStatus: status === 'needs_more_documents' ? 'pending' : status,
+        isVerifiedSeller: status === 'verified',
+        storeLevel: status === 'verified' ? 'corporate' : 'standard',
+      });
+      await logAction('kyc.review', 'kycRequests', request.id, { status, note, userId: request.userId });
+      toast.success('KYC basvurusu guncellendi.');
+      loadAll();
+    } catch {
+      toast.error('KYC guncellemesi basarisiz.');
+    }
+  };
+
+  const moderateProduct = async (item: any, moderationStatus: string) => {
+    if (!isStaff) return;
+    const reason = window.prompt('Moderasyon notu / sebep girin:') || '';
+    try {
+      await updateDoc(doc(db, 'products', item.id), {
+        moderationStatus,
+        moderationReason: reason,
+        status: moderationStatus === 'approved' ? 'active' : moderationStatus === 'suspended' ? 'inactive' : item.status || 'inactive',
+        updatedAt: serverTimestamp(),
+      });
+      await logAction('product.moderation', 'products', item.id, { moderationStatus, reason });
+      toast.success('Ilan moderasyonu guncellendi.');
+      loadAll();
+    } catch {
+      toast.error('Ilan moderasyonu basarisiz.');
+    }
+  };
+
+  const saveSettings = async () => {
+    if (!isStaff) return;
+    try {
+      await setDoc(doc(db, 'siteSettings', 'global'), { ...siteSettings, updatedAt: serverTimestamp(), updatedBy: user?.uid || '' }, { merge: true });
+      await logAction('siteSettings.update', 'siteSettings', 'global', siteSettings);
+      toast.success('Site ayarlari kaydedildi.');
+    } catch {
+      toast.error('Site ayarlari kaydedilemedi.');
+    }
+  };
+
+  // Filtered data
+  const filteredUsers = useMemo(() => {
+    let result = users;
+    if (userFilter.search) {
+      result = result.filter((u) =>
+        (u.username || '').toLowerCase().includes(userFilter.search.toLowerCase()) ||
+        u.id.includes(userFilter.search) ||
+        (u.email || '').toLowerCase().includes(userFilter.search.toLowerCase())
+      );
+    }
+    if (userFilter.role !== 'all') result = result.filter((u) => u.role === userFilter.role);
+    if (userFilter.status !== 'all') result = result.filter((u) => (u.accountStatus || 'active') === userFilter.status);
+    return result;
+  }, [users, userFilter]);
+
+  if (loading) return <div className="text-center py-20 text-white">Yukleniyor...</div>;
+  if (!user) return <Navigate to="/giris" />;
+  if (!isStaff) {
+    return (
+      <div className="max-w-2xl mx-auto bg-[#1a1b23] border border-white/10 rounded-2xl p-8 text-center mt-20">
+        <Shield className="w-16 h-16 text-red-500 mx-auto mb-4" />
+        <div className="text-2xl font-bold text-white mb-2">Yetkisiz Erisim</div>
+        <p className="text-gray-400 mb-5">Admin paneline sadece moderator veya admin hesaplar erisebilir.</p>
+        <Link to="/">
+          <Button className="bg-[#5b68f6] hover:bg-[#5b68f6]/90">Ana Sayfaya Don</Button>
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#111218] pb-10">
+      {/* Header */}
+      <div className="bg-[#1a1b23] border-b border-white/10 sticky top-0 z-50">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center gap-4">
+              <Shield className="w-8 h-8 text-[#5b68f6]" />
+              <h1 className="text-xl font-bold text-white">Admin Panel</h1>
+              <RoleBadge role={profile?.role || 'user'} />
+            </div>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="border-white/10 text-white hover:bg-white/5"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                Yenile
+              </Button>
+              <Link to="/">
+                <Button variant="outline" size="sm" className="border-white/10 text-white hover:bg-white/5">
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Siteye Don
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <div className="bg-[#1a1b23]/50 border-b border-white/10">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
+          <ScrollArea className="w-full whitespace-nowrap">
+            <div className="flex gap-1 py-3">
+              {[
+                { k: 'dashboard', label: 'Dashboard', icon: BarChart3 },
+                { k: 'users', label: 'Kullanicilar', icon: Users, badge: users.filter(u => u.kycStatus === 'pending').length },
+                { k: 'withdrawals', label: 'Cekimler', icon: Wallet, badge: withdrawals.filter(w => w.status === 'Beklemede').length },
+                { k: 'moderation', label: 'Ilanlar', icon: Package, badge: products.filter(p => p.moderationStatus === 'pending').length },
+                { k: 'kyc', label: 'KYC', icon: FileCheck, badge: kycQueue.filter(k => k.status === 'pending').length },
+                { k: 'support', label: 'Destek', icon: MessageSquare, badge: tickets.filter(t => t.status === 'open').length },
+                { k: 'disputes', label: 'Uyusmazliklar', icon: Gavel, badge: disputes.filter(d => d.status === 'active').length },
+                { k: 'giveaways', label: 'Cekilisler', icon: Gift },
+                { k: 'finance', label: 'Finans', icon: DollarSign },
+                { k: 'logs', label: 'Loglar', icon: Activity },
+                { k: 'settings', label: 'Ayarlar', icon: Settings },
+              ].map(({ k, label, icon: Icon, badge }: any) => (
+                <button
+                  key={k}
+                  onClick={() => { setTab(k as TabKey); setSearchParams({ tab: k }); }}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    tab === k ? 'bg-[#5b68f6] text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {label}
+                  {badge > 0 && (
+                    <span className="ml-1 px-1.5 py-0.5 text-xs bg-red-500 text-white rounded-full">{badge}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </ScrollArea>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {loadingData ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#5b68f6]"></div>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* DASHBOARD TAB */}
+            {tab === 'dashboard' && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <StatCard title="Toplam Kullanici" value={users.length.toLocaleString()} icon={Users} color="blue" />
+                  <StatCard title="Bekleyen Cekim" value={withdrawals.filter(w => w.status === 'Beklemede').length} icon={Wallet} color="amber" />
+                  <StatCard title="Onay Bekleyen Ilan" value={products.filter(p => p.moderationStatus === 'pending').length} icon={Package} color="purple" />
+                  <StatCard title="Acik Ticket" value={tickets.filter(t => t.status === 'open').length} icon={MessageSquare} color="red" />
+                </div>
+
+                <Card className="bg-[#1a1b23] border-white/10">
+                  <CardHeader>
+                    <CardTitle className="text-white">Hizli Erisim</CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <Button onClick={() => setTab('users')} className="h-20 flex flex-col items-center justify-center gap-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20">
+                      <Users className="w-6 h-6" /><span>Kullanicilar</span>
+                    </Button>
+                    <Button onClick={() => setTab('withdrawals')} className="h-20 flex flex-col items-center justify-center gap-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20">
+                      <Wallet className="w-6 h-6" /><span>Cekimler</span>
+                    </Button>
+                    <Button onClick={() => setTab('moderation')} className="h-20 flex flex-col items-center justify-center gap-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20">
+                      <Package className="w-6 h-6" /><span>Ilanlar</span>
+                    </Button>
+                    <Button onClick={() => setTab('support')} className="h-20 flex flex-col items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20">
+                      <MessageSquare className="w-6 h-6" /><span>Destek</span>
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-[#1a1b23] border-white/10">
+                  <CardHeader><CardTitle className="text-white">Son Aktiviteler</CardTitle></CardHeader>
+                  <CardContent>
+                    <ScrollArea className="h-[300px]">
+                      <div className="space-y-3">
+                        {adminLogs.slice(0, 20).map((log) => (
+                          <div key={log.id} className="flex items-start gap-3 p-3 rounded-lg bg-[#111218]">
+                            <div className="w-2 h-2 rounded-full bg-[#5b68f6] mt-2" />
+                            <div className="flex-1">
+                              <p className="text-sm text-white"><span className="font-medium">{log.action}</span> <span className="text-gray-400">{log.entity}</span></p>
+                              <p className="text-xs text-gray-500">{log.createdAt?.toDate?.() ? format(log.createdAt.toDate(), 'dd.MM.yyyy HH:mm', { locale: tr }) : 'N/A'}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* USERS TAB */}
+            {tab === 'users' && (
+              <Card className="bg-[#1a1b23] border-white/10">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-white">Kullanici Yonetimi</CardTitle>
+                    <CardDescription className="text-gray-400">Kullanicilari yonetin ve rollerini duzenleyin</CardDescription>
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      value={userFilter.search}
+                      onChange={(e) => setUserFilter(prev => ({ ...prev, search: e.target.value }))}
+                      placeholder="Kullanici ara..."
+                      className="w-[250px] bg-[#111218] border-white/10"
+                    />
+                    <Select value={userFilter.role} onValueChange={(v) => setUserFilter(prev => ({ ...prev, role: v }))}>
+                      <SelectTrigger className="w-[140px] bg-[#111218] border-white/10"><SelectValue placeholder="Rol" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tum Roller</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="moderator">Moderator</SelectItem>
+                        <SelectItem value="user">Kullanici</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={userFilter.status} onValueChange={(v) => setUserFilter(prev => ({ ...prev, status: v }))}>
+                      <SelectTrigger className="w-[140px] bg-[#111218] border-white/10"><SelectValue placeholder="Durum" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tum Durumlar</SelectItem>
+                        <SelectItem value="active">Aktif</SelectItem>
+                        <SelectItem value="frozen">Dondurulmus</SelectItem>
+                        <SelectItem value="banned">Banlanmis</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-white/10">
+                        <TableHead className="text-gray-400">Kullanici</TableHead>
+                        <TableHead className="text-gray-400">Email</TableHead>
+                        <TableHead className="text-gray-400">Rol</TableHead>
+                        <TableHead className="text-gray-400">Durum</TableHead>
+                        <TableHead className="text-gray-400">KYC</TableHead>
+                        <TableHead className="text-gray-400 text-right">Islemler</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredUsers.map((u) => (
+                        <TableRow key={u.id} className="border-white/10">
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-[#5b68f6] flex items-center justify-center text-white font-medium">
+                                {(u.username || 'U')[0].toUpperCase()}
+                              </div>
+                              <div>
+                                <p className="text-white font-medium">{u.username}</p>
+                                <p className="text-xs text-gray-500">{u.id.slice(0, 8)}...</p>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-gray-400">{u.email}</TableCell>
+                          <TableCell><RoleBadge role={u.role} /></TableCell>
+                          <TableCell><StatusBadge status={u.accountStatus || 'active'} /></TableCell>
+                          <TableCell><StatusBadge status={u.kycStatus || 'none'} /></TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex gap-1 justify-end">
+                              <Button size="sm" variant="outline" className="border-white/10 text-gray-400 hover:text-white" onClick={() => { setSelectedUser(u); setUserModalOpen(true); }}>
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                              {u.accountStatus !== 'banned' && (
+                                <Button size="sm" variant="outline" className="border-red-500/20 text-red-400 hover:bg-red-500/10" onClick={() => updateUser(u, { accountStatus: 'banned' }, 'user.ban')}>
+                                  <Ban className="w-4 h-4" />
+                                </Button>
+                              )}
+                              {u.accountStatus === 'banned' && (
+                                <Button size="sm" className="bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20" onClick={() => updateUser(u, { accountStatus: 'active' }, 'user.unban')}>
+                                  <CheckCircle className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* WITHDRAWALS TAB */}
+            {tab === 'withdrawals' && (
+              <Card className="bg-[#1a1b23] border-white/10">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-white">Para Cekim Talepleri</CardTitle>
+                    <CardDescription className="text-gray-400">Kullanicilarin para cekim taleplerini yonetin</CardDescription>
+                  </div>
+                  <Select value={withdrawalFilter} onValueChange={setWithdrawalFilter}>
+                    <SelectTrigger className="w-[150px] bg-[#111218] border-white/10">
+                      <Filter className="w-4 h-4 mr-2" />
+                      <SelectValue placeholder="Durum" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tumu</SelectItem>
+                      <SelectItem value="Beklemede">Bekleyen</SelectItem>
+                      <SelectItem value="Onaylandi">Onaylanan</SelectItem>
+                      <SelectItem value="Reddedildi">Reddedilen</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-white/10">
+                        <TableHead className="text-gray-400">Kullanici</TableHead>
+                        <TableHead className="text-gray-400">Tutar</TableHead>
+                        <TableHead className="text-gray-400">IBAN</TableHead>
+                        <TableHead className="text-gray-400">Tarih</TableHead>
+                        <TableHead className="text-gray-400">Durum</TableHead>
+                        <TableHead className="text-gray-400 text-right">Islem</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {withdrawals
+                        .filter(w => withdrawalFilter === 'all' || w.status === withdrawalFilter)
+                        .map((w) => (
+                        <TableRow key={w.id} className="border-white/10">
+                          <TableCell className="text-white">{w.userId?.slice(0, 8)}...</TableCell>
+                          <TableCell className="text-white font-medium">{(Number(w.amount) || 0).toFixed(2)} TL</TableCell>
+                          <TableCell className="text-gray-400">{w.iban || 'N/A'}</TableCell>
+                          <TableCell className="text-gray-400">
+                            {w.createdAt?.toDate?.() ? format(w.createdAt.toDate(), 'dd.MM.yyyy', { locale: tr }) : 'N/A'}
+                          </TableCell>
+                          <TableCell>
+                            <StatusBadge status={w.status === 'Beklemede' ? 'pending' : w.status === 'Onaylandi' ? 'completed' : 'rejected'} />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {w.status === 'Beklemede' && (
+                              <div className="flex gap-2 justify-end">
+                                <Button size="sm" className="bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20" onClick={() => updateWithdrawalStatus(w, 'Onaylandi')}>
+                                  <CheckCircle className="w-4 h-4 mr-1" /> Onayla
+                                </Button>
+                                <Button size="sm" variant="outline" className="border-red-500/20 text-red-400 hover:bg-red-500/10" onClick={() => updateWithdrawalStatus(w, 'Reddedildi')}>
+                                  <XCircle className="w-4 h-4 mr-1" /> Reddet
+                                </Button>
+                              </div>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* MODERATION TAB */}
+            {tab === 'moderation' && (
+              <Card className="bg-[#1a1b23] border-white/10">
+                <CardHeader>
+                  <CardTitle className="text-white">Ilan Moderasyonu</CardTitle>
+                  <CardDescription className="text-gray-400">Onay bekleyen ilanlari inceleyin</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4">
+                    {products.filter(p => p.moderationStatus === 'pending').map((p) => (
+                      <Card key={p.id} className="bg-[#111218] border-white/10">
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex gap-4">
+                              {p.imageUrls?.[0] && (
+                                <img src={p.imageUrls[0]} alt="" className="w-20 h-20 rounded-lg object-cover" />
+                              )}
+                              <div>
+                                <h3 className="text-white font-medium">{p.title}</h3>
+                                <p className="text-sm text-gray-400">{p.description?.slice(0, 100)}...</p>
+                                <div className="flex gap-2 mt-2">
+                                  <Badge variant="outline" className="bg-amber-500/10 text-amber-400">{p.price} TL</Badge>
+                                  <Badge variant="outline" className="bg-blue-500/10 text-blue-400">{p.category}</Badge>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button size="sm" className="bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20" onClick={() => moderateProduct(p, 'approved')}>
+                                <CheckCircle className="w-4 h-4 mr-1" /> Onayla
+                              </Button>
+                              <Button size="sm" variant="outline" className="border-red-500/20 text-red-400 hover:bg-red-500/10" onClick={() => moderateProduct(p, 'rejected')}>
+                                <XCircle className="w-4 h-4 mr-1" /> Reddet
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                    {products.filter(p => p.moderationStatus === 'pending').length === 0 && (
+                      <div className="text-center py-10 text-gray-400">Onay bekleyen ilan bulunmuyor.</div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* KYC TAB */}
+            {tab === 'kyc' && (
+              <Card className="bg-[#1a1b23] border-white/10">
+                <CardHeader>
+                  <CardTitle className="text-white">KYC Basvurulari</CardTitle>
+                  <CardDescription className="text-gray-400">Kimlik dogrulama basvurularini inceleyin</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4">
+                    {kycQueue.filter(k => k.status === 'pending').map((k) => (
+                      <Card key={k.id} className="bg-[#111218] border-white/10">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="w-12 h-12 rounded-full bg-[#5b68f6] flex items-center justify-center text-white font-bold">
+                                {(k.fullName || 'K')[0]}
+                              </div>
+                              <div>
+                                <h3 className="text-white font-medium">{k.fullName}</h3>
+                                <p className="text-sm text-gray-400">{k.userId?.slice(0, 8)}...</p>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button size="sm" className="bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20" onClick={() => reviewKyc(k, 'verified')}>
+                                <CheckCircle className="w-4 h-4 mr-1" /> Onayla
+                              </Button>
+                              <Button size="sm" variant="outline" className="border-red-500/20 text-red-400 hover:bg-red-500/10" onClick={() => reviewKyc(k, 'rejected')}>
+                                <XCircle className="w-4 h-4 mr-1" /> Reddet
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                    {kycQueue.filter(k => k.status === 'pending').length === 0 && (
+                      <div className="text-center py-10 text-gray-400">Bekleyen KYC basvurusu bulunmuyor.</div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* SUPPORT TAB */}
+            {tab === 'support' && (
+              <Card className="bg-[#1a1b23] border-white/10">
+                <CardHeader>
+                  <CardTitle className="text-white">Destek Talepleri</CardTitle>
+                  <CardDescription className="text-gray-400">Kullanici destek ticketlerini yonetin</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4">
+                    {tickets.filter(t => t.status === 'open').map((t) => (
+                      <Card key={t.id} className="bg-[#111218] border-white/10">
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h3 className="text-white font-medium">{t.subject}</h3>
+                              <p className="text-sm text-gray-400 mt-1">{t.description?.slice(0, 150)}...</p>
+                              <div className="flex gap-2 mt-2">
+                                <Badge variant="outline" className="bg-blue-500/10 text-blue-400">{t.priority || 'Normal'}</Badge>
+                                <Badge variant="outline" className="bg-amber-500/10 text-amber-400">{t.category}</Badge>
+                              </div>
+                            </div>
+                            <Button size="sm" className="bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20" onClick={() => updateDoc(doc(db, 'supportTickets', t.id), { status: 'closed', updatedAt: serverTimestamp() }).then(() => { toast.success('Ticket kapatildi'); loadAll(); })}>
+                              <CheckCircle className="w-4 h-4 mr-1" /> Kapat
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                    {tickets.filter(t => t.status === 'open').length === 0 && (
+                      <div className="text-center py-10 text-gray-400">Acik destek talebi bulunmuyor.</div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* GIVEAWAYS TAB */}
+            {tab === 'giveaways' && (
+              <Card className="bg-[#1a1b23] border-white/10">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-white">Cekilis Yonetimi</CardTitle>
+                    <CardDescription className="text-gray-400">Cekilisleri olusturun ve yonetin</CardDescription>
+                  </div>
+                  <Button className="bg-[#5b68f6] hover:bg-[#5b68f6]/90" onClick={() => {
+                    const title = window.prompt('Cekilis basligi:');
+                    const prize = window.prompt('Odul:');
+                    if (title && prize) {
+                      addDoc(collection(db, 'giveaways'), {
+                        title,
+                        prize,
+                        status: 'active',
+                        participants: [],
+                        winner: null,
+                        createdAt: serverTimestamp(),
+                        endDate: null,
+                      }).then(() => { toast.success('Cekilis olusturuldu'); loadAll(); });
+                    }
+                  }}>
+                    <Plus className="w-4 h-4 mr-2" /> Yeni Cekilis
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4">
+                    {giveaways.map((g) => (
+                      <Card key={g.id} className="bg-[#111218] border-white/10">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h3 className="text-white font-medium">{g.title}</h3>
+                              <p className="text-sm text-gray-400">Odul: {g.prize}</p>
+                              <p className="text-xs text-gray-500 mt-1">Katilimci: {(g.participants || []).length}</p>
+                            </div>
+                            <div className="flex gap-2">
+                              {g.status === 'active' && !g.winner && (
+                                <Button size="sm" className="bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 border border-purple-500/20" onClick={() => {
+                                  const parts = g.participants || [];
+                                  if (parts.length === 0) { toast.error('Katilimci yok'); return; }
+                                  const winner = parts[Math.floor(Math.random() * parts.length)];
+                                  updateDoc(doc(db, 'giveaways', g.id), { winner, status: 'completed', completedAt: serverTimestamp() })
+                                    .then(() => { toast.success(`Kazanan: ${winner}`); loadAll(); });
+                                }}>
+                                  <Gift className="w-4 h-4 mr-1" /> Kazanan Sec
+                                </Button>
+                              )}
+                              {g.winner && <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20">Kazanan: {g.winner.slice(0, 8)}...</Badge>}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                    {giveaways.length === 0 && (
+                      <div className="text-center py-10 text-gray-400">Henüz cekilis bulunmuyor.</div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* FINANCE TAB */}
+            {tab === 'finance' && (
+              <Card className="bg-[#1a1b23] border-white/10">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-white">Finans Islemleri</CardTitle>
+                    <CardDescription className="text-gray-400">Tum finansal islemleri goruntuleyin</CardDescription>
+                  </div>
+                  <Button className="bg-[#5b68f6] hover:bg-[#5b68f6]/90" onClick={() => {
+                    const userId = window.prompt('Kullanici ID:');
+                    const amount = Number(window.prompt('Tutar (+/-):'));
+                    const reason = window.prompt('Aciklama:') || 'Manual duzeltme';
+                    if (userId && amount) {
+                      addDoc(collection(db, 'transactions'), {
+                        userId, type: 'manual_adjustment', amount, fee: 0, status: 'completed',
+                        reason, createdAt: serverTimestamp(),
+                      }).then(() => { toast.success('Islem kaydedildi'); loadAll(); });
+                    }
+                  }}>
+                    <Plus className="w-4 h-4 mr-2" /> Manuel Islem
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-white/10">
+                        <TableHead className="text-gray-400">Tarih</TableHead>
+                        <TableHead className="text-gray-400">Kullanici</TableHead>
+                        <TableHead className="text-gray-400">Tur</TableHead>
+                        <TableHead className="text-gray-400">Tutar</TableHead>
+                        <TableHead className="text-gray-400">Durum</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {transactions.slice(0, 50).map((t) => (
+                        <TableRow key={t.id} className="border-white/10">
+                          <TableCell className="text-gray-400">
+                            {t.createdAt?.toDate?.() ? format(t.createdAt.toDate(), 'dd.MM.yyyy HH:mm', { locale: tr }) : 'N/A'}
+                          </TableCell>
+                          <TableCell className="text-white">{t.userId?.slice(0, 8)}...</TableCell>
+                          <TableCell className="text-gray-400">{t.type}</TableCell>
+                          <TableCell className={`font-medium ${t.amount > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                            {t.amount > 0 ? '+' : ''}{(Number(t.amount) || 0).toFixed(2)} TL
+                          </TableCell>
+                          <TableCell><StatusBadge status={t.status} /></TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* LOGS TAB */}
+            {tab === 'logs' && (
+              <Card className="bg-[#1a1b23] border-white/10">
+                <CardHeader>
+                  <CardTitle className="text-white">Admin Loglari</CardTitle>
+                  <CardDescription className="text-gray-400">Admin ve moderator aktiviteleri</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[600px]">
+                    <div className="space-y-2">
+                      {adminLogs.map((log) => (
+                        <div key={log.id} className="flex items-center gap-4 p-3 rounded-lg bg-[#111218] border border-white/5">
+                          <div className="w-2 h-2 rounded-full bg-[#5b68f6]" />
+                          <div className="flex-1">
+                            <p className="text-sm text-white">
+                              <span className="font-medium text-[#5b68f6]">{log.action}</span>
+                              <span className="text-gray-400"> on </span>
+                              <span className="text-gray-300">{log.entity}</span>
+                              <span className="text-gray-400"> ({log.entityId?.slice(0, 8)}...)</span>
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {log.actorRole} • {log.createdAt?.toDate?.() ? format(log.createdAt.toDate(), 'dd.MM.yyyy HH:mm:ss', { locale: tr }) : 'N/A'}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* SETTINGS TAB */}
+            {tab === 'settings' && (
+              <Card className="bg-[#1a1b23] border-white/10">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-white">Site Ayarlari</CardTitle>
+                    <CardDescription className="text-gray-400">Genel site ayarlarini duzenleyin</CardDescription>
+                  </div>
+                  <Button onClick={saveSettings} className="bg-[#5b68f6] hover:bg-[#5b68f6]/90">Kaydet</Button>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Card className="bg-[#111218] border-white/10">
+                      <CardContent className="p-4 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-white">Bakim Modu</Label>
+                          <Switch
+                            checked={siteSettings.maintenanceMode}
+                            onCheckedChange={(v) => setSiteSettings((p: any) => ({ ...p, maintenanceMode: v }))}
+                          />
+                        </div>
+                        <Textarea
+                          value={siteSettings.maintenanceMessage || ''}
+                          onChange={(e) => setSiteSettings((p: any) => ({ ...p, maintenanceMessage: e.target.value }))}
+                          placeholder="Bakim mesaji"
+                          className="bg-[#1a1b23] border-white/10 text-white"
+                        />
+                      </CardContent>
+                    </Card>
+                    <Card className="bg-[#111218] border-white/10">
+                      <CardContent className="p-4 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-white">Canli Destek</Label>
+                          <Switch
+                            checked={siteSettings.floatingChatEnabled}
+                            onCheckedChange={(v) => setSiteSettings((p: any) => ({ ...p, floatingChatEnabled: v }))}
+                          />
+                        </div>
+                        <Input
+                          value={siteSettings.topBarMessage || ''}
+                          onChange={(e) => setSiteSettings((p: any) => ({ ...p, topBarMessage: e.target.value }))}
+                          placeholder="TopBar mesaji"
+                          className="bg-[#1a1b23] border-white/10 text-white"
+                        />
+                      </CardContent>
+                    </Card>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* User Detail Modal */}
+      <Dialog open={userModalOpen} onOpenChange={setUserModalOpen}>
+        <DialogContent className="bg-[#1a1b23] border-white/10 text-white max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Kullanici Detayi</DialogTitle>
+            <DialogDescription className="text-gray-400">Kullanici bilgilerini goruntuleyin ve duzenleyin</DialogDescription>
+          </DialogHeader>
+          {selectedUser && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-full bg-[#5b68f6] flex items-center justify-center text-2xl font-bold">
+                  {(selectedUser.username || 'U')[0].toUpperCase()}
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold">{selectedUser.username}</h3>
+                  <p className="text-gray-400">{selectedUser.email}</p>
+                  <div className="flex gap-2 mt-1">
+                    <RoleBadge role={selectedUser.role} />
+                    <StatusBadge status={selectedUser.accountStatus || 'active'} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Card className="bg-[#111218] border-white/10 p-3">
+                  <p className="text-sm text-gray-400">Bakiye</p>
+                  <p className="text-xl font-bold text-white">{(selectedUser.balance || 0).toFixed(2)} TL</p>
+                </Card>
+                <Card className="bg-[#111218] border-white/10 p-3">
+                  <p className="text-sm text-gray-400">KYC Durumu</p>
+                  <StatusBadge status={selectedUser.kycStatus || 'none'} />
+                </Card>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-white">Rol Atama</Label>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={() => updateUser(selectedUser, { role: 'admin' }, 'user.roleToAdmin')} disabled={!isAdmin} className="bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 border border-purple-500/20">Admin Yap</Button>
+                  <Button size="sm" onClick={() => updateUser(selectedUser, { role: 'moderator' }, 'user.roleToModerator')} disabled={!isAdmin} className="bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20">Moderator Yap</Button>
+                  <Button size="sm" onClick={() => updateUser(selectedUser, { role: 'user' }, 'user.roleToUser')} className="bg-gray-500/10 text-gray-400 hover:bg-gray-500/20 border border-gray-500/20">Standart Kullanici</Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-white">Hesap Durumu</Label>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={() => updateUser(selectedUser, { accountStatus: 'active' }, 'user.activate')} className="bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20">Aktif Et</Button>
+                  <Button size="sm" onClick={() => updateUser(selectedUser, { accountStatus: 'frozen' }, 'user.freeze')} className="bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20">Dondur</Button>
+                  <Button size="sm" onClick={() => updateUser(selectedUser, { accountStatus: 'banned' }, 'user.ban')} className="bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20">Banla</Button>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUserModalOpen(false)} className="border-white/10 text-white hover:bg-white/5">Kapat</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

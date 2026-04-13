@@ -1,0 +1,532 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Fields: uid, username, email, avatar, balance, role, createdAt, listingCount, soldCount, rating, reviewCount, storeLevel, isVerifiedSeller, kycStatus, kycReferenceId
+    //
+    // Collection: products
+    // Fields: id, title, description, price, category, image, sellerId, sellerName, createdAt, status
+    //
+    // Collection: orders
+    // Fields: id, productId, productTitle, buyerId, sellerId, price, status, createdAt
+    //
+    // Collection: chats/{chatId}/messages
+    // Fields: id, chatId, senderId, text, createdAt
+    //
+    // Collection: favorites
+    // Fields: userId, productId, createdAt
+    //
+    // Collection: posts
+    // Fields: authorId, authorName, authorAvatar, title, content, category, likes, commentCount, createdAt
+    //
+    // Collection: posts/{postId}/comments
+    // Fields: postId, authorId, authorName, authorAvatar, text, createdAt
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isAuthenticated() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isBootstrapAdminEmail() {
+      return isAuthenticated() && request.auth.token.email == "necmiharun3@gmail.com";
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (isBootstrapAdminEmail() && request.auth.token.email_verified == true));
+    }
+
+    function isModerator() {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'moderator';
+    }
+
+    function isStaff() {
+      return isAdmin() || isModerator();
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidDateString(dateStr) {
+      return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
+    }
+
+    function isValidCreatedAt(value) {
+      return value is timestamp || isValidDateString(value);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return hasOnlyAllowedFields(['uid', 'username', 'email', 'avatar', 'bio', 'balance', 'balanceAvailableCents', 'balanceHeldCents', 'role', 'accountStatus', 'salesEnabled', 'riskNote', 'createdAt', 'listingCount', 'soldCount', 'rating', 'reviewCount', 'storeLevel', 'isVerifiedSeller', 'kycStatus', 'kycReferenceId', 'smsVerified', 'withdrawEnabled', 'notifications']) &&
+             data.uid is string && data.username is string && data.username.size() > 0 && data.username.size() < 50 &&
+             isValidEmail(data.email) &&
+             data.balance is number && data.balance >= 0 &&
+             (!(data.keys().hasAny(['balanceAvailableCents'])) || (data.balanceAvailableCents is number && data.balanceAvailableCents >= 0)) &&
+             (!(data.keys().hasAny(['balanceHeldCents'])) || (data.balanceHeldCents is number && data.balanceHeldCents >= 0)) &&
+             (!(data.keys().hasAny(['smsVerified'])) || data.smsVerified is bool) &&
+             (!(data.keys().hasAny(['withdrawEnabled'])) || data.withdrawEnabled is bool) &&
+             data.role in ['admin', 'moderator', 'user'] &&
+             data.accountStatus in ['active', 'frozen', 'banned'] &&
+             data.salesEnabled is bool &&
+             data.riskNote is string &&
+             data.storeLevel in ['standard', 'pro', 'corporate'] &&
+             data.isVerifiedSeller is bool &&
+             data.kycStatus in ['none', 'pending', 'verified', 'rejected'] &&
+             data.kycReferenceId is string &&
+             isValidCreatedAt(data.createdAt);
+    }
+
+    function isValidProduct(data) {
+      return hasOnlyAllowedFields([
+               'id',
+               'title',
+               'description',
+               'price',
+               'oldPrice',
+               'category',
+               'subcategory',
+               'type',
+               'productType',
+               'deliveryType',
+               'stock',
+               'stockCount',
+               'stockRef',
+               'image',
+               'sellerId',
+               'sellerName',
+               'sellerAvatar',
+               'createdAt',
+               'status',
+               'isVitrin',
+               'isFeatured',
+               'moderationStatus',
+               'moderationReason'
+             ]) &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 100 &&
+             data.price is number && data.price >= 0 &&
+             data.sellerId is string &&
+             data.status in ['active', 'sold', 'inactive', 'rejected', 'suspended'] &&
+             (!(data.keys().hasAny(['oldPrice'])) || (data.oldPrice is number && data.oldPrice >= 0)) &&
+             (!(data.keys().hasAny(['sellerAvatar'])) || data.sellerAvatar is string) &&
+             (!(data.keys().hasAny(['type'])) || data.type in ['buy', 'sell']) &&
+             (!(data.keys().hasAny(['isFeatured'])) || data.isFeatured is bool) &&
+             (!(data.keys().hasAny(['productType'])) || data.productType in ['account', 'epin']) &&
+             (!(data.keys().hasAny(['moderationStatus'])) || data.moderationStatus in ['pending', 'approved', 'rejected', 'suspended', 'removed_from_showcase']) &&
+             (!(data.keys().hasAny(['moderationReason'])) || data.moderationReason is string) &&
+             isValidCreatedAt(data.createdAt);
+    }
+
+    function isValidOrder(data) {
+      return hasOnlyAllowedFields(['id', 'productId', 'productTitle', 'productImage', 'buyerId', 'sellerId', 'sellerName', 'price', 'status', 'paymentStatus', 'paymentProviderRef', 'createdAt', 'updatedAt']) &&
+             data.productId is string &&
+             data.buyerId is string &&
+             data.sellerId is string &&
+             data.price is number &&
+             data.status in ['created', 'pending', 'processing', 'delivered', 'completed', 'cancelled', 'disputed'] &&
+             data.paymentStatus in ['pending', 'captured', 'refunded', 'failed'] &&
+             isValidCreatedAt(data.createdAt);
+    }
+
+    function isValidChat(data) {
+      return hasOnlyAllowedFields(['id', 'participants', 'participantNames', 'participantAvatars', 'lastMessage', 'lastMessageAt', 'createdAt']) &&
+             data.participants is list && data.participants.size() == 2 &&
+             data.participantNames is map &&
+             data.participantAvatars is map &&
+             isValidCreatedAt(data.createdAt);
+    }
+
+    function isValidMessage(data) {
+      return hasOnlyAllowedFields(['id', 'chatId', 'senderId', 'text', 'createdAt']) &&
+             data.chatId is string &&
+             data.senderId is string &&
+             data.text is string && data.text.size() > 0 && data.text.size() < 2000 &&
+             isValidCreatedAt(data.createdAt);
+    }
+
+    function isValidFavorite(data) {
+      return hasOnlyAllowedFields(['userId', 'productId', 'createdAt']) &&
+             data.userId is string &&
+             data.productId is string &&
+             isValidCreatedAt(data.createdAt);
+    }
+
+    function isValidPost(data) {
+      return hasOnlyAllowedFields(['authorId', 'authorName', 'authorAvatar', 'title', 'content', 'category', 'likes', 'commentCount', 'createdAt']) &&
+             data.authorId is string &&
+             data.authorName is string &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.content is string && data.content.size() > 0 && data.content.size() < 5000 &&
+             data.category is string &&
+             data.likes is number &&
+             data.commentCount is number &&
+             isValidCreatedAt(data.createdAt);
+    }
+
+    function isValidComment(data) {
+      return hasOnlyAllowedFields(['postId', 'authorId', 'authorName', 'authorAvatar', 'text', 'createdAt']) &&
+             data.postId is string &&
+             data.authorId is string &&
+             data.authorName is string &&
+             data.text is string && data.text.size() > 0 && data.text.size() < 1000 &&
+             isValidCreatedAt(data.createdAt);
+    }
+
+    function isValidShop(data) {
+      return hasOnlyAllowedFields(['ownerId', 'name', 'description', 'avatar', 'banner', 'rating', 'sales', 'isVerified', 'isPro', 'createdAt']) &&
+             data.ownerId is string &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.rating is number &&
+             data.sales is number &&
+             isValidCreatedAt(data.createdAt);
+    }
+
+    function isValidSupportTicket(data) {
+      return hasOnlyAllowedFields(['userId', 'subject', 'category', 'message', 'status', 'channel', 'assignedTo', 'attachmentUrl', 'productId', 'createdAt', 'updatedAt']) &&
+             data.userId is string &&
+             data.subject is string && data.subject.size() > 0 && data.subject.size() < 200 &&
+             data.category is string && data.category.size() > 0 && data.category.size() < 100 &&
+             data.message is string && data.message.size() > 0 && data.message.size() < 5000 &&
+             data.status in ['open', 'closed', 'pending', 'Beklemede', 'Cevaplandı', 'queue'] &&
+             (!(data.keys().hasAny(['attachmentUrl'])) || data.attachmentUrl is string) &&
+             (!(data.keys().hasAny(['productId'])) || data.productId is string) &&
+             isValidCreatedAt(data.createdAt);
+    }
+
+    function isValidWithdrawal(data) {
+      return hasOnlyAllowedFields(['userId', 'amount', 'fee', 'method', 'bankName', 'iban', 'accountHolder', 'status', 'rejectionReason', 'processedBy', 'createdAt', 'processedAt']) &&
+             data.userId is string &&
+             data.amount is number && data.amount >= 30 &&
+             data.fee is number && data.fee >= 0 &&
+             data.status in ['Beklemede', 'Onaylandı', 'Reddedildi', 'pending', 'approved', 'rejected'] &&
+             isValidCreatedAt(data.createdAt);
+    }
+
+    function isValidReview(data) {
+      return hasOnlyAllowedFields(['authorId', 'authorName', 'targetUserId', 'orderId', 'rating', 'comment', 'createdAt']) &&
+             data.authorId is string &&
+             data.targetUserId is string &&
+             data.rating is number && data.rating >= 1 && data.rating <= 5 &&
+             data.comment is string && data.comment.size() <= 1000 &&
+             isValidCreatedAt(data.createdAt);
+    }
+
+    function isValidFollower(data) {
+      return hasOnlyAllowedFields(['followerId', 'followerName', 'targetUserId', 'createdAt']) &&
+             data.followerId is string &&
+             data.targetUserId is string &&
+             data.followerName is string &&
+             isValidDateString(data.createdAt);
+    }
+
+    function isValidTransaction(data) {
+      // Keep backwards compatible, but allow gift/coupon style logs too
+      return hasOnlyAllowedFields(['userId', 'type', 'amount', 'fee', 'status', 'relatedId', 'refId', 'reason', 'direction', 'meta', 'createdAt']) &&
+             data.userId is string &&
+             data.type is string &&
+             data.amount is number &&
+             (!(data.keys().hasAny(['fee'])) || data.fee is number) &&
+             (!(data.keys().hasAny(['status'])) || data.status is string) &&
+             // at least one of relatedId/refId should exist for traceability
+             (data.keys().hasAny(['relatedId']) ? data.relatedId is string : true) &&
+             (data.keys().hasAny(['refId']) ? data.refId is string : true) &&
+             (data.keys().hasAny(['relatedId']) || data.keys().hasAny(['refId'])) &&
+             (!(data.keys().hasAny(['direction'])) || data.direction in ['credit', 'debit']) &&
+             (!(data.keys().hasAny(['meta'])) || data.meta is map) &&
+             isValidCreatedAt(data.createdAt);
+    }
+
+    function isValidPaymentIntent(data) {
+      return data.keys().hasOnly(['userId', 'orderId', 'amount', 'currency', 'method', 'status', 'provider', 'createdAt', 'authorizedAt', 'capturedAt', 'refundedAt']) &&
+             data.userId is string &&
+             data.orderId is string &&
+             data.amount is number &&
+             data.currency == 'TRY' &&
+             data.method in ['card', 'bank_transfer', 'wallet'] &&
+             data.status in ['requires_action', 'authorized', 'captured', 'refunded'] &&
+             data.provider is string &&
+             isValidCreatedAt(data.createdAt);
+    }
+
+    function isValidGroup(data) {
+      return hasOnlyAllowedFields(['name', 'description', 'avatar', 'memberCount', 'category', 'createdAt']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.memberCount is number &&
+             data.category is string &&
+             isValidDateString(data.createdAt);
+    }
+
+    function isValidNotification(data) {
+      return hasOnlyAllowedFields(['userId', 'title', 'message', 'type', 'isRead', 'createdAt']) &&
+             data.userId is string &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.message is string && data.message.size() > 0 && data.message.size() < 1000 &&
+             data.type in ['info', 'success', 'warning', 'error'] &&
+             data.isRead is bool &&
+             isValidCreatedAt(data.createdAt);
+    }
+
+    function isValidSiteSettings(data) {
+      return hasOnlyAllowedFields(['maintenanceMode', 'maintenanceMessage', 'topBarMessage', 'floatingChatEnabled', 'banners', 'heroSlides', 'updatedAt', 'updatedBy']) &&
+        (!(data.keys().hasAny(['maintenanceMode'])) || data.maintenanceMode is bool) &&
+        (!(data.keys().hasAny(['maintenanceMessage'])) || data.maintenanceMessage is string) &&
+        (!(data.keys().hasAny(['topBarMessage'])) || data.topBarMessage is string) &&
+        (!(data.keys().hasAny(['floatingChatEnabled'])) || data.floatingChatEnabled is bool) &&
+        (!(data.keys().hasAny(['banners'])) || data.banners is list) &&
+        (!(data.keys().hasAny(['heroSlides'])) || (data.heroSlides is list && data.heroSlides.size() <= 12)) &&
+        (!(data.keys().hasAny(['updatedAt'])) || isValidCreatedAt(data.updatedAt)) &&
+        (!(data.keys().hasAny(['updatedBy'])) || data.updatedBy is string);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if isOwner(userId) &&
+                    isValidUser(request.resource.data) &&
+                    request.resource.data.balance == 0 &&
+                    (
+                      request.resource.data.role == 'user' ||
+                      (isBootstrapAdminEmail() && request.resource.data.role == 'admin')
+                    );
+      allow update: if (
+        isOwner(userId) &&
+        isValidUser(request.resource.data) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['username', 'avatar', 'bio', 'notifications']) &&
+        request.resource.data.role == resource.data.role &&
+        request.resource.data.balance == resource.data.balance &&
+        request.resource.data.accountStatus == resource.data.accountStatus &&
+        request.resource.data.salesEnabled == resource.data.salesEnabled &&
+        request.resource.data.riskNote == resource.data.riskNote
+      ) || isStaff();
+    }
+
+    match /kycRequests/{requestId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isStaff());
+      allow create: if isAuthenticated() &&
+        request.resource.data.keys().hasOnly(['userId', 'fullName', 'nationalId', 'status', 'createdAt', 'reviewedBy', 'reviewNote', 'reviewedAt']) &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.fullName is string &&
+        request.resource.data.fullName.size() > 2 &&
+        request.resource.data.nationalId is string &&
+        request.resource.data.nationalId.size() == 11 &&
+        request.resource.data.status == 'pending' &&
+        isValidCreatedAt(request.resource.data.createdAt);
+      allow update: if isStaff();
+    }
+
+    match /products/{productId} {
+      allow read: if true;
+      allow create: if (isAuthenticated() && isEmailVerified() && isValidProduct(request.resource.data) && request.resource.data.sellerId == request.auth.uid) || isStaff();
+      allow update: if (isAuthenticated() && isValidProduct(request.resource.data) && resource.data.sellerId == request.auth.uid) || isAdmin();
+      allow delete: if (isAuthenticated() && resource.data.sellerId == request.auth.uid) || isAdmin();
+    }
+
+    match /orders/{orderId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.buyerId || request.auth.uid == resource.data.sellerId || isAdmin());
+      // Client sadece sipariş oluşturabilir; durum değişimleri Cloud Functions tarafından yapılır
+      allow create: if isAuthenticated() &&
+        isValidOrder(request.resource.data) &&
+        request.resource.data.buyerId == request.auth.uid &&
+        request.resource.data.status == 'created' &&
+        request.resource.data.paymentStatus == 'pending';
+      allow update: if isStaff(); // harden: prevent client-side status/price tampering
+    }
+
+    match /chats/{chatId} {
+      allow read: if isAuthenticated() && request.auth.uid in resource.data.participants;
+      allow create: if (isAuthenticated() && isEmailVerified() && isValidChat(request.resource.data) && request.auth.uid in request.resource.data.participants) || isStaff();
+      allow update: if isAuthenticated() && request.auth.uid in resource.data.participants && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastMessage', 'lastMessageAt']);
+
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        allow create: if (isAuthenticated() && isEmailVerified() && isValidMessage(request.resource.data) && request.resource.data.senderId == request.auth.uid && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants) || isStaff();
+      }
+    }
+
+    match /favorites/{favoriteId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
+      allow create: if isAuthenticated() && isValidFavorite(request.resource.data) && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
+    }
+
+    match /posts/{postId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && 
+                       request.resource.data.authorId == request.auth.uid &&
+                       request.resource.data.title is string &&
+                       request.resource.data.title.size() > 0 &&
+                       request.resource.data.content is string &&
+                       request.resource.data.content.size() > 0 &&
+                       request.resource.data.createdAt is timestamp;
+      allow update: if (isAuthenticated() && resource.data.authorId == request.auth.uid) || 
+                      (isAuthenticated() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'commentCount']));
+      allow delete: if isAuthenticated() && resource.data.authorId == request.auth.uid;
+
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isAuthenticated() && 
+                         request.resource.data.authorId == request.auth.uid &&
+                         request.resource.data.text is string &&
+                         request.resource.data.text.size() > 0 &&
+                         request.resource.data.createdAt is timestamp;
+        allow delete: if isAuthenticated() && resource.data.authorId == request.auth.uid;
+      }
+    }
+
+    match /groups/{groupId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && 
+                       request.resource.data.ownerId == request.auth.uid &&
+                       request.resource.data.name is string &&
+                       request.resource.data.name.size() > 0 &&
+                       request.resource.data.name.size() < 50 &&
+                       request.resource.data.description is string &&
+                       request.resource.data.description.size() > 0 &&
+                       request.resource.data.description.size() < 200 &&
+                       request.resource.data.members is list &&
+                       request.resource.data.memberCount is number &&
+                       request.resource.data.createdAt is timestamp;
+      allow update: if isAuthenticated() && 
+                       (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'memberCount']) ||
+                        (resource.data.ownerId == request.auth.uid));
+      allow delete: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
+    }
+
+    match /groupPosts/{postId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && 
+                       request.resource.data.groupId is string &&
+                       request.resource.data.authorId == request.auth.uid &&
+                       request.resource.data.content is string &&
+                       request.resource.data.content.size() > 0 &&
+                       request.resource.data.createdAt is timestamp;
+      allow delete: if isAuthenticated() && resource.data.authorId == request.auth.uid;
+    }
+
+    match /shops/{shopId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && isValidShop(request.resource.data) && request.resource.data.ownerId == request.auth.uid;
+      allow update: if (isAuthenticated() && isValidShop(request.resource.data) && resource.data.ownerId == request.auth.uid) || isAdmin();
+    }
+
+    match /supportTickets/{ticketId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isStaff());
+      allow create: if isAuthenticated() && isValidSupportTicket(request.resource.data) && request.resource.data.userId == request.auth.uid;
+      allow update: if isStaff() || (isAuthenticated() && request.auth.uid == resource.data.userId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']));
+    }
+
+    match /withdrawals/{withdrawalId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isStaff());
+      allow create: if isAuthenticated() && isValidWithdrawal(request.resource.data) && request.resource.data.userId == request.auth.uid;
+      allow update: if isStaff();
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && isValidReview(request.resource.data) && request.resource.data.authorId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && (resource.data.authorId == request.auth.uid || isAdmin());
+    }
+
+    match /followers/{followId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && isValidFollower(request.resource.data) && request.resource.data.followerId == request.auth.uid;
+      allow delete: if isAuthenticated() && (resource.data.followerId == request.auth.uid || isAdmin());
+    }
+
+    match /transactions/{transactionId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isStaff());
+      // Harden: kullanıcıların genel transaction yazması riskli. Şimdilik sadece sınırlı tipler self-write.
+      allow create: if isAuthenticated() && isValidTransaction(request.resource.data) && (
+        (isStaff()) ||
+        (
+          request.resource.data.userId == request.auth.uid &&
+          request.resource.data.type in ['withdrawal_request', 'gift_send', 'gift_receive', 'coupon_redeem']
+        )
+      );
+      allow update: if isStaff();
+    }
+
+    match /epinStocks/{stockId} {
+      // E-pin kodları client tarafından okunamaz (teslimatta Function kontrol eder)
+      allow read: if false;
+      allow create: if isAuthenticated() &&
+        request.resource.data.keys().hasOnly(['productId', 'sellerId', 'remainingCount', 'codes', 'createdAt']) &&
+        request.resource.data.sellerId == request.auth.uid &&
+        request.resource.data.productId is string &&
+        request.resource.data.remainingCount is number &&
+        request.resource.data.codes is list &&
+        isValidCreatedAt(request.resource.data.createdAt);
+      allow update, delete: if isStaff();
+    }
+
+    match /paymentIntents/{intentId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
+      allow create: if isAuthenticated() && isValidPaymentIntent(request.resource.data) && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    match /disputes/{disputeId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.buyerId || request.auth.uid == resource.data.sellerId || isStaff());
+      allow create: if isAuthenticated() && request.resource.data.keys().hasAll(['orderId', 'buyerId', 'sellerId', 'reason', 'status', 'createdAt']);
+      allow update: if isStaff();
+    }
+
+    match /groups/{groupId} {
+      allow read: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin() || (isAuthenticated() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberCount']));
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && request.auth.uid == resource.data.userId;
+      // Allow users to enqueue their own in-app notifications (no impersonation)
+      allow create: if (isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidNotification(request.resource.data)) || isStaff();
+      allow update: if isAuthenticated() && request.auth.uid == resource.data.userId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+    }
+
+    match /supportTicketReplies/{replyId} {
+      allow read: if isStaff() || (isAuthenticated() && request.auth.uid == resource.data.actorId);
+      allow create: if isStaff() && request.resource.data.keys().hasAll(['ticketId', 'actorId', 'actorRole', 'message', 'createdAt']);
+    }
+
+    match /adminLogs/{logId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update, delete: if false;
+    }
+
+    match /siteSettings/{docId} {
+      allow read: if true;
+      allow create, update: if isStaff() && isValidSiteSettings(request.resource.data);
+      allow delete: if false;
+    }
+  }
+}

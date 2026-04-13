@@ -1,0 +1,12 @@
+{
+  "maintenanceMode": false,
+  "maintenanceMessage": "Sistem bakımdadır. Lütfen daha sonra tekrar deneyin.",
+  "topBarMessage": "En uygun fiyatlarla Valorant VP satın almak için tıklayın.",
+  "floatingChatEnabled": true,
+  "banners": [
+    { "label": "PUBG MOBILE", "text": "RP A18 Şimdi Oyunda!", "accent": "amber", "active": true },
+    { "label": "Valorant", "text": "Karaçalı Koleksiyonu Şimdi Oyunda", "accent": "red", "active": true },
+    { "label": "FC26 Kategorisine Özel", "text": "BIZIMCOCUKLAR koduyla 50₺ üzeri alışverişlerinde %5 indirim!", "accent": "emerald", "active": true }
+  ]
+}
+
