@@ -4,10 +4,11 @@ import {
   ChevronRight, Star, DollarSign, Users, ArrowUpRight, ArrowDownRight,
   Calendar, Clock, CheckCircle, XCircle, Clock3, LogOut, FileText, 
   Shield, User, CreditCard, Gift, Camera, Edit3, ShoppingBag, Trophy,
-  BarChart3, Activity
+  BarChart3, Activity, Lightbulb, RefreshCw
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { getSellerAnalytics, type SellerAnalytics, type ListingPerf } from '../services/sellerAnalyticsService';
 import { Navigate, Link, useNavigate } from 'react-router-dom';
 import { db, storage } from '../firebase';
 import { collection, query, where, getDocs, orderBy, limit, doc, updateDoc } from 'firebase/firestore';
@@ -39,7 +40,9 @@ export default function Dashboard() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
-  
+  const [analytics, setAnalytics] = useState<SellerAnalytics | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+
   useEffect(() => {
     if (!user) return;
     const fetchData = async () => {
@@ -69,6 +72,14 @@ export default function Dashboard() {
         });
 
         setRecentOrders(ordersSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+
+        // Gelişmiş analitik yükle
+        setAnalyticsLoading(true);
+        try {
+          const a = await getSellerAnalytics(uid);
+          setAnalytics(a);
+        } catch {}
+        setAnalyticsLoading(false);
       } catch (e) {
         console.error('Dashboard fetch failed:', e);
       } finally {
@@ -378,6 +389,99 @@ export default function Dashboard() {
               </div>
             </div>
 
+          </div>
+        </div>
+
+        {/* Analytics Panel — Sağ Sütun */}
+        <div className="space-y-6">
+          {/* Dönüşüm & İstatistikler */}
+          <div className="bg-[#1a1b23] rounded-2xl border border-white/5 p-5">
+            <h3 className="font-bold text-white mb-4 flex items-center gap-2">
+              <Activity className="w-4 h-4 text-[#5b68f6]" />İş Zekâsı
+            </h3>
+            {analyticsLoading || !analytics ? (
+              <div className="space-y-3">
+                {[1,2,3,4].map(i => <div key={i} className="h-8 bg-white/5 rounded-lg animate-pulse" />)}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
+                  <span className="text-sm text-gray-400">Dönüşüm Oranı</span>
+                  <span className={`font-bold ${analytics.conversionRate >= 3 ? 'text-emerald-400' : analytics.conversionRate >= 1 ? 'text-amber-400' : 'text-gray-400'}`}>
+                    %{analytics.conversionRate}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
+                  <span className="text-sm text-gray-400">İptal Oranı</span>
+                  <span className={`font-bold ${analytics.cancelRate <= 5 ? 'text-emerald-400' : analytics.cancelRate <= 15 ? 'text-amber-400' : 'text-red-400'}`}>
+                    %{analytics.cancelRate}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
+                  <span className="text-sm text-gray-400">Ort. Teslimat</span>
+                  <span className="text-white font-bold">
+                    {analytics.avgDeliveryMinutes < 60 ? `${Math.round(analytics.avgDeliveryMinutes)}dk` : `${Math.round(analytics.avgDeliveryMinutes/60)}sa`}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
+                  <span className="text-sm text-gray-400">Tekrar Müşteri</span>
+                  <span className="text-emerald-400 font-bold">%{analytics.repeatCustomerRate}</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* En İyi İlanlar */}
+          {analytics && analytics.topListings.length > 0 && (
+            <div className="bg-[#1a1b23] rounded-2xl border border-white/5 p-5">
+              <h3 className="font-bold text-white mb-4 flex items-center gap-2">
+                <Trophy className="w-4 h-4 text-amber-400" />En İyi İlanlar
+              </h3>
+              <div className="space-y-2">
+                {analytics.topListings.slice(0, 3).map(l => (
+                  <div key={l.id} className="flex items-center gap-3 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+                    {l.image ? <img src={l.image} className="w-10 h-10 rounded object-cover" alt="" /> : <div className="w-10 h-10 rounded bg-gray-700 flex items-center justify-center"><Package className="w-4 h-4 text-gray-500" /></div>}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-sm font-medium truncate">{l.title}</p>
+                      <p className="text-xs text-gray-500">{l.orders} sipariş • {l.revenue.toFixed(0)}₺</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* İyileştirme Önerileri */}
+          {analytics && analytics.weakListings.length > 0 && (
+            <div className="bg-[#1a1b23] rounded-2xl border border-amber-500/10 p-5">
+              <h3 className="font-bold text-white mb-4 flex items-center gap-2">
+                <Lightbulb className="w-4 h-4 text-amber-400" />İyileştirme Önerileri
+              </h3>
+              <div className="space-y-2">
+                {analytics.weakListings.slice(0, 3).map(l => (
+                  <div key={l.id} className="text-xs text-amber-400 bg-amber-500/5 rounded-lg p-2.5 border border-amber-500/10">
+                    <p className="text-white font-medium truncate mb-1">{l.title}</p>
+                    <p>Görüntülenme: {l.views} • Dönüşüm: %{l.conversionRate} — Açıklama/fiyatı gözden geçirin</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Hızlı Aksiyonlar */}
+          <div className="bg-gradient-to-br from-[#5b68f6]/20 to-[#8b5cf6]/10 rounded-2xl border border-[#5b68f6]/20 p-5">
+            <h3 className="font-bold text-white mb-3">Hızlı Aksiyonlar</h3>
+            <div className="space-y-2">
+              <Link to="/ilan-ekle" className="flex items-center gap-2 text-sm text-white bg-[#5b68f6] hover:bg-[#5b68f6]/80 rounded-lg px-3 py-2 transition-colors">
+                <Plus className="w-4 h-4" />Yeni İlan Ekle
+              </Link>
+              <button className="w-full flex items-center gap-2 text-sm text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg px-3 py-2 transition-colors">
+                <RefreshCw className="w-4 h-4" />İlanları Yenile (Premium)
+              </button>
+              <Link to="/bakiye-yukle" className="flex items-center gap-2 text-sm text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg px-3 py-2 transition-colors">
+                <Wallet className="w-4 h-4" />Para Çek
+              </Link>
+            </div>
           </div>
         </div>
       </div>

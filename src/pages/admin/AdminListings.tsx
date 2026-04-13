@@ -14,8 +14,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Textarea } from '../../components/ui/textarea';
 import { Label } from '../../components/ui/label';
 import toast from 'react-hot-toast';
-import { Package, Search, CheckCircle, XCircle, Eye, Star, Trash2, RefreshCw, AlertTriangle, Flag } from 'lucide-react';
+import { Package, Search, CheckCircle, XCircle, Eye, Star, Trash2, RefreshCw, AlertTriangle, Flag, Shield, Zap, TrendingDown } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { runListingModeration, saveModerationResult, REJECTION_TEMPLATES } from '../../services/listingModerationService';
 
 const StatusBadge = ({ status }: { status: string }) => {
   const map: Record<string, string> = {
@@ -45,6 +46,7 @@ export default function AdminListings() {
   const [rejectDialog, setRejectDialog] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<any>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [autoModRunning, setAutoModRunning] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -106,6 +108,32 @@ export default function AdminListings() {
     setRejectTarget(null);
   };
 
+  const runAutoModeration = async () => {
+    const targets = products.filter(p =>
+      (p.moderationStatus === 'pending' || !p.moderationStatus) &&
+      p.title && p.description && !p.autoModerated
+    ).slice(0, 20);
+    if (!targets.length) { toast('Yeni moderasyon edilecek ilan yok.'); return; }
+    setAutoModRunning(true);
+    let approved = 0, queued = 0, rejected = 0;
+    for (const p of targets) {
+      try {
+        const res = await runListingModeration({
+          title: p.title, description: p.description || '',
+          price: Number(p.price || 0), category: p.category || '',
+          sellerId: p.sellerId || p.userId || '', images: p.imageUrls,
+        });
+        await saveModerationResult(p.id, res, user?.uid);
+        if (res.decision === 'approve') approved++;
+        else if (res.decision === 'queue') queued++;
+        else rejected++;
+        setProducts(prev => prev.map(x => x.id === p.id ? { ...x, moderationScore: res.score, moderationDecision: res.decision, moderationStatus: res.decision === 'reject' ? 'rejected' : res.decision === 'queue' ? 'pending' : 'approved', autoModerated: true } : x));
+      } catch { /* skip */ }
+    }
+    setAutoModRunning(false);
+    toast.success(`Oto-mod: ${approved} onay, ${queued} kuyruk, ${rejected} red`);
+  };
+
   const categories = useMemo(() => ['all', ...Array.from(new Set(products.map(p => p.category).filter(Boolean)))], [products]);
 
   const filtered = useMemo(() => {
@@ -116,8 +144,19 @@ export default function AdminListings() {
     return r;
   }, [products, search, catFilter, statusFilter]);
 
-  const pending = products.filter(p => p.moderationStatus === 'pending');
-  const reported = products.filter(p => p.reportCount > 0);
+  const pending = products.filter(p => p.moderationStatus === 'pending' || (!p.moderationStatus && p.status === 'pending'));
+  const reported = products.filter(p => (p.reportCount || 0) > 0);
+  const rejected = products.filter(p => p.moderationStatus === 'rejected' || p.moderationDecision === 'reject');
+  const suspicious = products.filter(p => p.moderationScore !== undefined && p.moderationScore < 50 && p.status !== 'rejected');
+  const priceAnomaly = products.filter(p => p.moderationChecks?.some?.((c: any) => c.id === 'price_anomaly' && !c.passed));
+
+  const ScorePill = ({ score }: { score?: number }) => {
+    if (score === undefined || score === null) return null;
+    const cls = score >= 80 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+      : score >= 50 ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+      : 'bg-red-500/10 text-red-400 border-red-500/20';
+    return <span className={`inline-flex items-center gap-1 text-[10px] border rounded-full px-1.5 py-0.5 font-mono ${cls}`}><Shield className="w-2.5 h-2.5" />{score}</span>;
+  };
 
   const ListingsTable = ({ items }: { items: any[] }) => (
     <Table>
@@ -130,6 +169,7 @@ export default function AdminListings() {
           <TableHead className="text-gray-400">Satıcı</TableHead>
           <TableHead className="text-gray-400">Kategori</TableHead>
           <TableHead className="text-gray-400">Fiyat</TableHead>
+          <TableHead className="text-gray-400">Skor</TableHead>
           <TableHead className="text-gray-400">Durum</TableHead>
           <TableHead className="text-gray-400">Tarih</TableHead>
           <TableHead className="text-gray-400 text-right">İşlem</TableHead>
@@ -154,6 +194,7 @@ export default function AdminListings() {
             <TableCell className="text-gray-400 text-sm">{p.userId?.slice(0, 8) || '-'}</TableCell>
             <TableCell className="text-gray-400 text-sm">{p.category || '-'}</TableCell>
             <TableCell className="text-white font-medium">{p.price} ₺</TableCell>
+            <TableCell><ScorePill score={p.moderationScore} /></TableCell>
             <TableCell><StatusBadge status={p.moderationStatus || p.status || 'active'} /></TableCell>
             <TableCell className="text-gray-500 text-xs">{p.createdAt?.toDate?.() ? format(p.createdAt.toDate(), 'dd.MM.yy', { locale: tr }) : '-'}</TableCell>
             <TableCell className="text-right">
@@ -179,10 +220,14 @@ export default function AdminListings() {
           <h2 className="text-2xl font-bold text-white">İlan Yönetimi</h2>
           <p className="text-gray-400 text-sm mt-1">{products.length} toplam ilan • {pending.length} onay bekliyor</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Button size="sm" className="bg-[#5b68f6]/10 text-[#8b95ff] border border-[#5b68f6]/20 hover:bg-[#5b68f6]/20" onClick={runAutoModeration} disabled={autoModRunning}>
+            {autoModRunning ? <><RefreshCw className="w-3.5 h-3.5 mr-1 animate-spin" />Tarıyor...</> : <><Zap className="w-3.5 h-3.5 mr-1" />Oto-Moderasyon Çalıştır</>}
+          </Button>
           {selectedItems.length > 0 && <>
-            <Button size="sm" className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" onClick={() => bulkModerate('approved')}><CheckCircle className="w-3.5 h-3.5 mr-1" />Toplu Onayla ({selectedItems.length})</Button>
-            <Button size="sm" variant="outline" className="border-red-500/20 text-red-400" onClick={() => bulkModerate('rejected')}><XCircle className="w-3.5 h-3.5 mr-1" />Toplu Reddet</Button>
+            <Button size="sm" className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" onClick={() => bulkModerate('approved')}><CheckCircle className="w-3.5 h-3.5 mr-1" />Onayla ({selectedItems.length})</Button>
+            <Button size="sm" variant="outline" className="border-red-500/20 text-red-400" onClick={() => bulkModerate('rejected')}><XCircle className="w-3.5 h-3.5 mr-1" />Reddet</Button>
+            <Button size="sm" variant="outline" className="border-gray-500/20 text-gray-400" onClick={() => bulkModerate('suspended')}><Trash2 className="w-3.5 h-3.5 mr-1" />Pasife Al</Button>
           </>}
           <Button variant="outline" size="sm" onClick={refresh} disabled={refreshing} className="border-white/10 text-white hover:bg-white/5">
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
@@ -192,14 +237,21 @@ export default function AdminListings() {
 
       <Tabs defaultValue="all">
         <TabsList className="bg-[#1a1b23] border border-white/10">
-          <TabsTrigger value="all">Tüm İlanlar ({products.length})</TabsTrigger>
-          <TabsTrigger value="pending" className="relative">
-            Onay Bekleyen
-            {pending.length > 0 && <span className="ml-1.5 px-1.5 py-0.5 text-[10px] bg-red-500 text-white rounded-full">{pending.length}</span>}
+          <TabsTrigger value="all">Tüm ({products.length})</TabsTrigger>
+          <TabsTrigger value="pending">
+            Kuyruk {pending.length > 0 && <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-amber-500 text-white rounded-full">{pending.length}</span>}
+          </TabsTrigger>
+          <TabsTrigger value="suspicious">
+            Şüpheli {suspicious.length > 0 && <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-orange-500 text-white rounded-full">{suspicious.length}</span>}
+          </TabsTrigger>
+          <TabsTrigger value="rejected">
+            Reddedilen {rejected.length > 0 && <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-red-500 text-white rounded-full">{rejected.length}</span>}
           </TabsTrigger>
           <TabsTrigger value="reported">
-            Raporlanan
-            {reported.length > 0 && <span className="ml-1.5 px-1.5 py-0.5 text-[10px] bg-amber-500 text-white rounded-full">{reported.length}</span>}
+            Raporlanan {reported.length > 0 && <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-red-400 text-white rounded-full">{reported.length}</span>}
+          </TabsTrigger>
+          <TabsTrigger value="price">
+            Fiyat Sapması {priceAnomaly.length > 0 && <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-purple-500 text-white rounded-full">{priceAnomaly.length}</span>}
           </TabsTrigger>
         </TabsList>
 
@@ -260,6 +312,48 @@ export default function AdminListings() {
           )}
         </TabsContent>
 
+        <TabsContent value="suspicious" className="mt-4 space-y-3">
+          {suspicious.length === 0 ? <div className="text-center py-16 text-gray-400"><Shield className="w-12 h-12 mx-auto mb-3 text-gray-600" /><p>Şüpheli ilan yok.</p></div> : (
+            suspicious.map(p => (
+              <Card key={p.id} className="bg-[#1a1b23] border-orange-500/20">
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-4">
+                    {p.imageUrls?.[0] && <img src={p.imageUrls[0]} className="w-16 h-16 rounded object-cover flex-shrink-0" alt="" />}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Shield className="w-4 h-4 text-orange-400" />
+                        <span className="text-orange-400 text-sm font-medium">Mod Skoru: {p.moderationScore}</span>
+                        {p.moderationRejectReason && <span className="text-red-400 text-xs">{p.moderationRejectReason}</span>}
+                      </div>
+                      <h3 className="text-white font-semibold truncate">{p.title}</h3>
+                      <p className="text-gray-400 text-xs mt-0.5">{p.category} • {p.price} ₺</p>
+                      {p.moderationChecks && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {p.moderationChecks.filter((c: any) => !c.passed).map((c: any) => (
+                            <span key={c.id} className="text-[10px] bg-red-500/10 border border-red-500/20 text-red-400 rounded px-1.5 py-0.5">{c.label}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1.5 flex-shrink-0">
+                      <Button size="sm" className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 h-7" onClick={() => moderate(p, 'approved')}><CheckCircle className="w-3 h-3 mr-1" />Onayla</Button>
+                      <Button size="sm" variant="outline" className="border-red-500/20 text-red-400 h-7" onClick={() => openReject(p)}><XCircle className="w-3 h-3 mr-1" />Reddet</Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </TabsContent>
+
+        <TabsContent value="rejected" className="mt-4 space-y-3">
+          {rejected.length === 0 ? <div className="text-center py-16 text-gray-400"><XCircle className="w-12 h-12 mx-auto mb-3 text-gray-600" /><p>Reddedilen ilan yok.</p></div> : (
+            <Card className="bg-[#1a1b23] border-white/10">
+              <ListingsTable items={rejected} />
+            </Card>
+          )}
+        </TabsContent>
+
         <TabsContent value="reported" className="mt-4 space-y-3">
           {reported.length === 0 ? <div className="text-center py-16 text-gray-400"><Flag className="w-12 h-12 mx-auto mb-3 text-gray-600" /><p>Raporlanan ilan yok.</p></div> : (
             reported.map(p => (
@@ -281,15 +375,32 @@ export default function AdminListings() {
             ))
           )}
         </TabsContent>
+
+        <TabsContent value="price" className="mt-4 space-y-3">
+          {priceAnomaly.length === 0 ? <div className="text-center py-16 text-gray-400"><TrendingDown className="w-12 h-12 mx-auto mb-3 text-gray-600" /><p>Fiyat sapması tespit edilmedi.</p></div> : (
+            <Card className="bg-[#1a1b23] border-white/10">
+              <ListingsTable items={priceAnomaly} />
+            </Card>
+          )}
+        </TabsContent>
       </Tabs>
 
       <Dialog open={rejectDialog} onOpenChange={setRejectDialog}>
-        <DialogContent className="bg-[#1a1b23] border-white/10 text-white">
+        <DialogContent className="bg-[#1a1b23] border-white/10 text-white max-w-lg">
           <DialogHeader><DialogTitle>İlanı Reddet</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <p className="text-gray-400 text-sm">İlan: <span className="text-white">{rejectTarget?.title}</span></p>
-            <Label className="text-white">Red Sebebi</Label>
-            <Textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="Red sebebini yazın (kullanıcıya gösterilecek)..." rows={3} className="bg-[#111218] border-white/10 text-white" />
+            <Label className="text-white text-xs text-gray-400">Şablon Seç</Label>
+            <div className="grid grid-cols-2 gap-1.5">
+              {REJECTION_TEMPLATES.filter(t => t.id !== 'other').map(t => (
+                <button key={t.id} onClick={() => setRejectReason(t.text)}
+                  className={`text-left text-xs p-2 rounded-lg border transition-all ${rejectReason === t.text ? 'bg-[#5b68f6]/20 border-[#5b68f6]/40 text-white' : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'}`}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <Label className="text-white">Red Sebebi (kullanıcıya gösterilecek)</Label>
+            <Textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="Red sebebini yazın..." rows={3} className="bg-[#111218] border-white/10 text-white" />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRejectDialog(false)} className="border-white/10 text-white">İptal</Button>

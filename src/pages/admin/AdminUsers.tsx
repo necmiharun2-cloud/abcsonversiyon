@@ -21,6 +21,19 @@ import {
   Mail, Phone, Calendar, Activity, RefreshCw
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import AdminUserTrustPanel from './AdminUserTrustPanel';
+import { getTrustLevelColor, getTrustLevelLabel, type TrustLevel } from '../../services/trustScoreService';
+
+const TrustScorePill = ({ score, level }: { score?: number; level?: TrustLevel }) => {
+  if (score === undefined && !level) return <span className="text-gray-600 text-xs">—</span>;
+  const color = getTrustLevelColor(level || (score !== undefined ? (score >= 80 ? 'trusted' : score >= 60 ? 'standard' : score >= 35 ? 'new' : 'risky') : 'new'));
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs font-bold ${color}`}>
+      {score !== undefined ? score : '?'}
+      {level && <span className="text-[10px] font-normal opacity-70">/{getTrustLevelLabel(level as TrustLevel).split(' ')[0]}</span>}
+    </span>
+  );
+};
 
 const StatusBadge = ({ status }: { status: string }) => {
   const map: Record<string, string> = {
@@ -198,6 +211,7 @@ export default function AdminUsers() {
                 <TableHead className="text-gray-400">Rol</TableHead>
                 <TableHead className="text-gray-400">Durum</TableHead>
                 <TableHead className="text-gray-400">KYC</TableHead>
+                <TableHead className="text-gray-400">Güven</TableHead>
                 <TableHead className="text-gray-400">Bakiye</TableHead>
                 <TableHead className="text-gray-400">Kayıt</TableHead>
                 <TableHead className="text-gray-400 text-right">İşlem</TableHead>
@@ -221,6 +235,7 @@ export default function AdminUsers() {
                   <TableCell><RoleBadge role={u.role} /></TableCell>
                   <TableCell><StatusBadge status={u.accountStatus || 'active'} /></TableCell>
                   <TableCell><StatusBadge status={u.kycStatus || 'none'} /></TableCell>
+                  <TableCell><TrustScorePill score={u.trustScore} level={u.trustLevel} /></TableCell>
                   <TableCell className="text-white font-medium text-sm">{(Number(u.balance) || 0).toFixed(2)} ₺</TableCell>
                   <TableCell className="text-gray-500 text-xs">{u.createdAt?.toDate?.() ? format(u.createdAt.toDate(), 'dd.MM.yy', { locale: tr }) : '-'}</TableCell>
                   <TableCell className="text-right">
@@ -251,11 +266,16 @@ export default function AdminUsers() {
             <Tabs defaultValue="profile" className="w-full">
               <TabsList className="bg-[#111218] border border-white/10 mb-4 w-full">
                 <TabsTrigger value="profile" className="flex-1 text-xs">Profil</TabsTrigger>
+                <TabsTrigger value="trust" className="flex-1 text-xs">Güven Puanı</TabsTrigger>
                 <TabsTrigger value="actions" className="flex-1 text-xs">İşlemler</TabsTrigger>
                 <TabsTrigger value="orders" className="flex-1 text-xs">Siparişler</TabsTrigger>
                 <TabsTrigger value="transactions" className="flex-1 text-xs">İşlem Geçmişi</TabsTrigger>
                 <TabsTrigger value="notes" className="flex-1 text-xs">Admin Notları</TabsTrigger>
               </TabsList>
+
+              <TabsContent value="trust">
+                <AdminUserTrustPanel userId={selectedUser.id} userData={selectedUser} />
+              </TabsContent>
 
               <TabsContent value="profile" className="space-y-4">
                 <div className="flex items-center gap-4">

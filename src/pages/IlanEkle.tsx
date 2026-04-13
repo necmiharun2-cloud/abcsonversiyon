@@ -1,4 +1,4 @@
-import { useState, FormEvent, useRef } from 'react';
+import { useState, FormEvent, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db, storage } from '../firebase';
 import { collection, addDoc, doc, serverTimestamp, setDoc, updateDoc, getDocs, query, where, limit } from 'firebase/firestore';
@@ -8,8 +8,10 @@ import toast from 'react-hot-toast';
 import { 
   Upload, CheckCircle2, AlertCircle, Plus, Image, Tag, DollarSign, 
   Package, Truck, FileText, ChevronRight, ChevronLeft, Sparkles,
-  Zap, Shield, Info, X, Check, Layers, CreditCard, Send, Search
+  Zap, Shield, Info, X, Check, Layers, CreditCard, Send, Search,
+  TrendingUp, TrendingDown, BarChart3, Lightbulb
 } from 'lucide-react';
+import { analyzeListingQuality, type SmartListingAnalysis } from '../services/listingModerationService';
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -159,6 +161,31 @@ export default function IlanEkle() {
     stock: '1',
     productType: 'account' as 'account' | 'epin',
   });
+
+  const [smartAnalysis, setSmartAnalysis] = useState<SmartListingAnalysis | null>(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const analysisTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (currentStep !== 2) return;
+    if (!formData.title && !formData.price) return;
+    if (analysisTimer.current) clearTimeout(analysisTimer.current);
+    analysisTimer.current = setTimeout(async () => {
+      if (!formData.title && !formData.description) return;
+      setAnalysisLoading(true);
+      try {
+        const res = await analyzeListingQuality({
+          title: formData.title,
+          description: formData.description,
+          price: Number(formData.price) || 0,
+          category: formData.category,
+        });
+        setSmartAnalysis(res);
+      } catch { /* silent */ }
+      finally { setAnalysisLoading(false); }
+    }, 800);
+    return () => { if (analysisTimer.current) clearTimeout(analysisTimer.current); };
+  }, [formData.title, formData.description, formData.price, formData.category, currentStep]);
 
   const totalSteps = 4;
   const stepNames = ['Tür & Kategori', 'Ürün Detayları', 'Teslimat', 'Görsel & Onay'];
@@ -548,7 +575,9 @@ export default function IlanEkle() {
                   <p className="text-sm text-gray-400">İlanınız hakkında detaylı bilgi verin</p>
                 </div>
 
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {/* Sol: Form alanları */}
+                <div className="lg:col-span-2 space-y-4">
                   <div>
                     <label className="flex items-center gap-2 text-sm font-medium text-gray-300 mb-2">
                       <Tag className="w-4 h-4" />
@@ -620,7 +649,103 @@ export default function IlanEkle() {
                       <p className="text-xs text-gray-500">{formData.description.length}/1000</p>
                     </div>
                   </div>
-                </div>
+                </div>{/* /left form */}
+
+                {/* Sağ: Akıllı Yardımcı Paneli */}
+                <div className="lg:col-span-1">
+                  <div className="bg-[#111218] border border-white/10 rounded-xl p-4 sticky top-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Sparkles className="w-4 h-4 text-[#5b68f6]" />
+                      <span className="text-white font-semibold text-sm">Akıllı Yardımcı</span>
+                      {analysisLoading && <div className="w-3 h-3 rounded-full border-b border-[#5b68f6] animate-spin ml-auto" />}
+                    </div>
+
+                    {!smartAnalysis && !analysisLoading && (
+                      <p className="text-gray-500 text-xs">Başlık ve fiyat girdikçe analiz başlar...</p>
+                    )}
+
+                    {smartAnalysis && (
+                      <div className="space-y-3">
+                        {/* Genel kalite */}
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs text-gray-400">İlan Kalitesi</span>
+                            <span className={`text-xs font-bold ${
+                              smartAnalysis.overallQuality >= 70 ? 'text-emerald-400'
+                              : smartAnalysis.overallQuality >= 45 ? 'text-amber-400' : 'text-red-400'
+                            }`}>{smartAnalysis.overallQuality}/100</span>
+                          </div>
+                          <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${
+                                smartAnalysis.overallQuality >= 70 ? 'bg-emerald-500'
+                                : smartAnalysis.overallQuality >= 45 ? 'bg-amber-500' : 'bg-red-500'
+                              }`}
+                              style={{ width: `${smartAnalysis.overallQuality}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Satış ihtimali */}
+                        <div className={`flex items-center gap-2 text-xs rounded-lg px-2.5 py-2 ${
+                          smartAnalysis.salesProbability === 'high' ? 'bg-emerald-500/10 text-emerald-400'
+                          : smartAnalysis.salesProbability === 'medium' ? 'bg-amber-500/10 text-amber-400'
+                          : 'bg-red-500/10 text-red-400'
+                        }`}>
+                          <TrendingUp className="w-3.5 h-3.5" />
+                          Satış ihtimali: <span className="font-bold">{{
+                            high: 'Yüksek', medium: 'Orta', low: 'Düşük'
+                          }[smartAnalysis.salesProbability]}</span>
+                        </div>
+
+                        {/* Sub-skorlar */}
+                        <div className="space-y-1.5">
+                          {[['Başlık', smartAnalysis.titleScore], ['Açıklama', smartAnalysis.descScore], ['Fiyat', smartAnalysis.priceScore]].map(([label, val]) => (
+                            <div key={label as string} className="flex items-center gap-2 text-xs">
+                              <span className="text-gray-500 w-16">{label}</span>
+                              <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full ${
+                                  Number(val) >= 70 ? 'bg-emerald-500' : Number(val) >= 45 ? 'bg-amber-500' : 'bg-red-500'
+                                }`} style={{ width: `${val}%` }} />
+                              </div>
+                              <span className="text-gray-400 w-6 text-right">{val}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Fiyat karşılaştırma */}
+                        {smartAnalysis.priceComparison && (
+                          <div className="bg-white/5 rounded-lg p-2.5 text-xs space-y-1">
+                            <p className="text-gray-400 font-medium">Benzer İlan Fiyatları</p>
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">Ortalama</span>
+                              <span className="text-white">{smartAnalysis.priceComparison.avgPrice.toFixed(0)}₺</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">En Düşük</span>
+                              <span className="text-emerald-400">{smartAnalysis.priceComparison.minPrice.toFixed(0)}₺</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">En Yüksek</span>
+                              <span className="text-red-400">{smartAnalysis.priceComparison.maxPrice.toFixed(0)}₺</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Öneriler */}
+                        {smartAnalysis.suggestions.length > 0 && (
+                          <div className="space-y-1.5">
+                            <p className="text-xs text-gray-400 font-medium flex items-center gap-1"><Lightbulb className="w-3 h-3" />Öneriler</p>
+                            {smartAnalysis.suggestions.slice(0, 4).map((s, i) => (
+                              <p key={i} className="text-xs text-amber-400 bg-amber-500/5 rounded px-2 py-1.5 border border-amber-500/10">{s}</p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>{/* /right panel */}
+                </div>{/* /grid */}
               </div>
             )}
 
