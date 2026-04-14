@@ -125,6 +125,13 @@ export default function MyListings() {
                 <h3 className="text-white font-bold mb-2 line-clamp-2">{listing.title}</h3>
                 <div className="text-emerald-400 font-bold text-lg mb-4">{(Number(listing.price) || 0).toFixed(2)} ₺</div>
                 <div className="mt-auto flex gap-2">
+                  <Link
+                    to={`/ilan-duzenle/${listing.id}`}
+                    className="bg-[#23242f] hover:bg-[#2d2e3b] text-white p-2 rounded-lg transition-colors"
+                    title="İlanı düzenle"
+                  >
+                    <Edit className="w-5 h-5" />
+                  </Link>
                   <button 
                     onClick={() => handleToggleStatus(listing.id, listing.status)}
                     className="flex-1 bg-[#23242f] hover:bg-[#2d2e3b] text-white py-2 rounded-lg text-sm font-medium transition-colors"

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged } from 'firebase/auth';
+import { User, onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
 import { addDoc, collection, doc, getDocs, increment, limit, onSnapshot, query, runTransaction, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { isAdminEmail } from '../config/admin';
@@ -41,14 +41,24 @@ interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
+  signOut: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType>({ user: null, profile: null, loading: true });
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  profile: null,
+  loading: true,
+  signOut: async () => {},
+});
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const signOut = async () => {
+    await firebaseSignOut(auth);
+  };
 
   useEffect(() => {
     let unsubscribeProfile: () => void;
@@ -232,7 +242,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading }}>
+    <AuthContext.Provider value={{ user, profile, loading, signOut }}>
       {children}
     </AuthContext.Provider>
   );

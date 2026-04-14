@@ -1,9 +1,9 @@
 import { useState, FormEvent, useRef, useEffect, ChangeEvent } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db, storage } from '../firebase';
-import { collection, addDoc, doc, serverTimestamp, setDoc, updateDoc, getDocs, query, where, limit } from 'firebase/firestore';
+import { collection, addDoc, doc, serverTimestamp, setDoc, updateDoc, getDocs, query, where, limit, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   Upload, CheckCircle2, AlertCircle, Plus, Image, Tag, DollarSign,
@@ -141,12 +141,15 @@ const DELIVERY_OPTIONS = [
 export default function IlanEkle() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
+  const { id: editListingId } = useParams();
+  const isEditMode = Boolean(editListingId);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [currentStep, setCurrentStep] = useState<Step>(1);
   const [loading, setLoading] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [prefillLoading, setPrefillLoading] = useState(false);
   const [epinCodesRaw, setEpinCodesRaw] = useState('');
   const [categorySearch, setCategorySearch] = useState('');
   const [showCategorySearch, setShowCategorySearch] = useState(false);
@@ -166,6 +169,60 @@ export default function IlanEkle() {
   const [smartAnalysis, setSmartAnalysis] = useState<SmartListingAnalysis | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const analysisTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!isEditMode || !editListingId || !user) return;
+
+    let cancelled = false;
+
+    const loadListing = async () => {
+      setPrefillLoading(true);
+      try {
+        const listingRef = doc(db, 'products', editListingId);
+        const listingSnap = await getDoc(listingRef);
+        if (!listingSnap.exists()) {
+          toast.error('Düzenlenecek ilan bulunamadı.');
+          navigate('/ilanlarim');
+          return;
+        }
+
+        const listing = listingSnap.data() as any;
+        if (String(listing.sellerId || '') !== user.uid) {
+          toast.error('Bu ilanı düzenleme yetkiniz yok.');
+          navigate('/ilanlarim');
+          return;
+        }
+
+        if (cancelled) return;
+
+        setFormData((prev) => ({
+          ...prev,
+          title: String(listing.title || ''),
+          description: String(listing.description || ''),
+          price: String(listing.price ?? ''),
+          category: String(listing.category || ''),
+          subcategory: String(listing.subcategory || ''),
+          deliveryType: listing.deliveryType === 'manual' ? 'manual' : 'auto',
+          autoDeliveryMessage: String(listing.autoDeliveryMessage || ''),
+          stock: String(Number(listing.stock || 1) || 1),
+          productType: listing.productType === 'epin' ? 'epin' : 'account',
+        }));
+
+        setImagePreview(typeof listing.image === 'string' ? listing.image : null);
+      } catch (error) {
+        console.error('Listing prefill failed:', error);
+        toast.error('İlan bilgileri yüklenemedi.');
+      } finally {
+        if (!cancelled) setPrefillLoading(false);
+      }
+    };
+
+    void loadListing();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isEditMode, editListingId, user, navigate]);
 
   useEffect(() => {
     if (currentStep !== 2) return;
@@ -199,10 +256,10 @@ export default function IlanEkle() {
     formData.description.trim().length > 0 &&
     Number(formData.price) > 0 &&
     (formData.productType === 'epin'
-      ? epinCodesRaw.trim().length > 0
+      ? (isEditMode || epinCodesRaw.trim().length > 0)
       : Number(formData.stock) > 0) &&
     (!requiresAutoMessage || formData.autoDeliveryMessage.trim().length >= 8) &&
-    !!imageFile;
+    !!(imageFile || imagePreview);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -247,7 +304,7 @@ export default function IlanEkle() {
         where('title', '==', formData.title),
         limit(1)
       ));
-      if (!dupSnap.empty) {
+      if (!dupSnap.empty && dupSnap.docs.some((d) => d.id !== editListingId)) {
         toast.error('Bu başlıkla zaten bir ilanınız var. Başlığı değiştirin.');
         return;
       }
@@ -255,21 +312,39 @@ export default function IlanEkle() {
 
     setLoading(true);
     try {
-      const filePath = `products/${user.uid}/${Date.now()}_${imageFile?.name || 'image'}`;
-      const imageRef = ref(storage, filePath);
-      await uploadBytes(imageRef, imageFile as File);
-      const imageUrl = await getDownloadURL(imageRef);
+      let imageUrl = imagePreview || '';
+      if (imageFile) {
+        const filePath = `products/${user.uid}/${Date.now()}_${imageFile.name || 'image'}`;
+        const imageRef = ref(storage, filePath);
+        await uploadBytes(imageRef, imageFile);
+        imageUrl = await getDownloadURL(imageRef);
+      }
 
-      const created = await addDoc(collection(db, 'products'), {
+      if (!imageUrl) {
+        throw new Error('Ürün görseli zorunludur.');
+      }
+
+      const basePayload = {
         ...formData,
         price: parseFloat(formData.price),
         stock: formData.productType === 'epin' ? 0 : (parseInt(formData.stock) || 1),
-        sellerId: user.uid,
-        sellerName: user.displayName || 'Anonim Satıcı',
-        status: 'active',
-        createdAt: serverTimestamp(),
-        image: imageUrl
-      });
+        image: imageUrl,
+        updatedAt: serverTimestamp(),
+      };
+
+      let productId = editListingId || '';
+      if (isEditMode && editListingId) {
+        await updateDoc(doc(db, 'products', editListingId), basePayload as any);
+      } else {
+        const created = await addDoc(collection(db, 'products'), {
+          ...basePayload,
+          sellerId: user.uid,
+          sellerName: user.displayName || 'Anonim Satıcı',
+          status: 'active',
+          createdAt: serverTimestamp(),
+        });
+        productId = created.id;
+      }
 
       if (formData.productType === 'epin' && formData.deliveryType === 'auto') {
         const codes = epinCodesRaw
@@ -277,33 +352,36 @@ export default function IlanEkle() {
           .map((l) => l.trim())
           .filter(Boolean);
         if (codes.length === 0) {
-          throw new Error('E-pin kodları boş olamaz.');
+          if (!isEditMode) {
+            throw new Error('E-pin kodları boş olamaz.');
+          }
+        } else {
+          const stockRef = doc(collection(db, 'epinStocks'));
+          await updateDoc(doc(db, 'products', productId), {
+            stockCount: codes.length,
+            stockRef: stockRef.id,
+            deliveryType: 'auto',
+          } as any);
+          await setDoc(stockRef, {
+            productId,
+            sellerId: user.uid,
+            remainingCount: codes.length,
+            codes,
+            createdAt: serverTimestamp(),
+          } as any);
         }
-        const stockRef = doc(collection(db, 'epinStocks'));
-        await updateDoc(doc(db, 'products', created.id), {
-          stockCount: codes.length,
-          stockRef: stockRef.id,
-          deliveryType: 'auto',
-        } as any);
-        await setDoc(stockRef, {
-          productId: created.id,
-          sellerId: user.uid,
-          remainingCount: codes.length,
-          codes,
-          createdAt: serverTimestamp(),
-        } as any);
       } else {
-        await updateDoc(doc(db, 'products', created.id), {
+        await updateDoc(doc(db, 'products', productId), {
           deliveryType: formData.deliveryType === 'auto' ? 'auto' : 'manual',
           autoDeliveryMessage: requiresAutoMessage ? formData.autoDeliveryMessage.trim() : null,
         } as any);
       }
 
-      toast.success('İlan başarıyla eklendi!');
+      toast.success(isEditMode ? 'İlan başarıyla güncellendi!' : 'İlan başarıyla eklendi!');
       navigate('/ilanlarim');
     } catch (error) {
       console.error('Error adding document: ', error);
-      toast.error('İlan eklenirken bir hata oluştu.');
+      toast.error(isEditMode ? 'İlan güncellenirken bir hata oluştu.' : 'İlan eklenirken bir hata oluştu.');
     } finally {
       setLoading(false);
     }
@@ -320,7 +398,7 @@ export default function IlanEkle() {
                Number(formData.price) > 0;
       case 3:
         if (formData.productType === 'epin' && formData.deliveryType === 'auto') {
-          return epinCodeCount > 0;
+          return isEditMode || epinCodeCount > 0;
         }
         if (requiresAutoMessage) {
           return formData.autoDeliveryMessage.trim().length >= 8;
@@ -395,6 +473,10 @@ export default function IlanEkle() {
     }
   };
 
+  if (isEditMode && prefillLoading) {
+    return <div className="text-center py-20 text-white">İlan bilgileri yükleniyor...</div>;
+  }
+
   return (
     <div className="space-y-6">
       <div className="bg-gradient-to-r from-[#1a1b23] via-[#2a3050] to-[#1a1b23] rounded-2xl border border-white/5 p-6 sm:p-8 relative overflow-hidden">
@@ -407,8 +489,8 @@ export default function IlanEkle() {
                 SATIŞ İLANI
               </span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Yeni İlan Oluştur</h1>
-            <p className="text-gray-400 max-w-xl">İlanınızı adım adım hazırlayın, alıcılarla hızlıca buluşturun.</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">{isEditMode ? 'İlanı Düzenle' : 'Yeni İlan Oluştur'}</h1>
+            <p className="text-gray-400 max-w-xl">{isEditMode ? 'İlan bilgilerinizi güncelleyerek satış performansınızı artırın.' : 'İlanınızı adım adım hazırlayın, alıcılarla hızlıca buluşturun.'}</p>
           </div>
 
           <div className="flex flex-col sm:flex-row items-center gap-4">
@@ -1066,12 +1148,12 @@ export default function IlanEkle() {
                   {loading ? (
                     <>
                       <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Yayınlanıyor...
+                      {isEditMode ? 'Kaydediliyor...' : 'Yayınlanıyor...'}
                     </>
                   ) : (
                     <>
                       <Send className="w-5 h-5" />
-                      İlanı Yayınla
+                      {isEditMode ? 'İlanı Güncelle' : 'İlanı Yayınla'}
                     </>
                   )}
                 </button>

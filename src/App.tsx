@@ -169,6 +169,7 @@ export default function App() {
               <Route path="top-up" element={<TopUp />} />
               <Route path="hediye-kartlari" element={<GiftCards />} />
               <Route path="ilan-ekle" element={<IlanEkle />} />
+              <Route path="ilan-duzenle/:id" element={<IlanEkle />} />
               <Route path="favori-sistemi" element={<FavoriSistemi />} />
               <Route path="ilan-yukari-tasima" element={<IlanYukariTasima />} />
               <Route path="gizlilik-politikasi" element={<Privacy />} />
