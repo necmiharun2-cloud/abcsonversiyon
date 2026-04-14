@@ -1,6 +1,6 @@
 import { Search, User, LogOut, ShoppingCart, Plus, Bell, MessageSquare, ChevronDown, Menu, X, Wallet, Package, Tag, Star, LifeBuoy, ShieldCheck, PlusCircle } from 'lucide-react';
 import React, { useState, useRef, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { signOut } from 'firebase/auth';
@@ -15,6 +15,8 @@ export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const location = useLocation();
+  const isCreateListingActive = location.pathname === '/ilan-ekle';
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,7 +95,11 @@ export default function Header() {
               <>
                 <Link
                   to="/ilan-ekle"
-                  className="hidden sm:flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-sm font-semibold transition-colors"
+                  className={`hidden sm:flex items-center gap-1.5 text-white px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                    isCreateListingActive
+                      ? 'bg-purple-700 ring-1 ring-purple-300/40'
+                      : 'bg-purple-600 hover:bg-purple-700'
+                  }`}
                 >
                   <Plus className="h-4 w-4" />
                   <span className="hidden md:inline">İlan Ekle</span>
@@ -196,7 +202,15 @@ export default function Header() {
               <Link to="/roblox" onClick={() => setIsMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-white/5 text-white/80 hover:text-white text-sm">Roblox</Link>
               <Link to="/destek-sistemi" onClick={() => setIsMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-white/5 text-white/80 hover:text-white text-sm">Destek</Link>
               {user && (
-                <Link to="/ilan-ekle" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-purple-600/20 text-purple-400 text-sm font-semibold mt-2">
+                <Link
+                  to="/ilan-ekle"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold mt-2 ${
+                    isCreateListingActive
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-purple-600/20 text-purple-400'
+                  }`}
+                >
                   <Plus className="w-4 h-4" /> İlan Ekle
                 </Link>
               )}
