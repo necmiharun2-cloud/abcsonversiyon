@@ -4,6 +4,7 @@ import { useSiteSettings } from '../hooks/useSiteSettings';
 
 export default function TopBar() {
   const settings = useSiteSettings();
+  const slogan = settings.topBarMessage || 'Güvenli al, hızlı teslim al, kazançlı sat — dijital pazarda itemTR ile öne çık.';
   
   // Rotating featured products like itemTR
   const featuredProducts = [
@@ -26,7 +27,7 @@ export default function TopBar() {
           >
             <Sparkles className="w-3.5 h-3.5 text-yellow-500" />
             <span className="font-bold text-yellow-500">{currentFeatured.name}</span>
-            <span>- {currentFeatured.description}</span>
+            <span>- {slogan}</span>
             <ChevronRight className="w-3.5 h-3.5" />
           </Link>
         </div>
