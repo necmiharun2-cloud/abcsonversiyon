@@ -1,0 +1,21 @@
+User-agent: *
+Allow: /
+
+Disallow: /admin
+Disallow: /admin/
+Disallow: /kontrol-merkezi
+Disallow: /profile
+Disallow: /profile/
+Disallow: /mesajlarim
+Disallow: /bildirimler
+Disallow: /ayarlar
+Disallow: /sepet
+Disallow: /siparislerim
+Disallow: /siparis/
+Disallow: /odeme/
+Disallow: /login
+Disallow: /register
+Disallow: /sifremi-unuttum
+
+Sitemap: https://itemtr.com/sitemap.xml
+Host: itemtr.com
