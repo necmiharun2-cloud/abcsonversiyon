@@ -369,55 +369,78 @@ export default function IlanEkle() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-[#5b68f6]/20 via-[#8b5cf6]/10 to-[#5b68f6]/20 rounded-2xl border border-[#5b68f6]/20 p-6 mb-6">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 bg-gradient-to-br from-[#5b68f6] to-[#8b5cf6] rounded-2xl flex items-center justify-center shadow-lg shadow-[#5b68f6]/30">
-            <Plus className="w-7 h-7 text-white" />
+    <div className="space-y-6">
+      <div className="bg-gradient-to-r from-[#1a1b23] via-[#2a3050] to-[#1a1b23] rounded-2xl border border-white/5 p-6 sm:p-8 relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 via-orange-500 to-red-500" />
+        <div className="relative flex flex-col lg:flex-row items-center justify-between gap-6">
+          <div className="text-center lg:text-left">
+            <div className="flex items-center gap-2 justify-center lg:justify-start mb-2">
+              <Tag className="w-6 h-6 text-amber-500" />
+              <span className="bg-amber-500/20 text-amber-400 text-xs font-bold px-3 py-1 rounded-full">
+                SATIŞ İLANI
+              </span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Yeni İlan Oluştur</h1>
+            <p className="text-gray-400 max-w-xl">İlanınızı adım adım hazırlayın, alıcılarla hızlıca buluşturun.</p>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-white">Yeni İlan Oluştur</h1>
-            <p className="text-gray-400 text-sm mt-0.5">Ürünlerinizi binlerce alıcıyla buluşturun</p>
+
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <div className="flex items-center gap-4">
+              <div className="text-center px-4 py-2 bg-[#111218] rounded-xl">
+                <p className="text-2xl font-bold text-white">{currentStep}</p>
+                <p className="text-xs text-gray-400">Aktif Adım</p>
+              </div>
+              <div className="text-center px-4 py-2 bg-[#111218] rounded-xl">
+                <p className="text-2xl font-bold text-amber-400">{totalSteps}</p>
+                <p className="text-xs text-gray-400">Toplam Adım</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCurrentStep(1)}
+              className="shrink-0 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-amber-500/25"
+            >
+              <Plus className="w-5 h-5" />
+              Baştan Düzenle
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Progress Steps */}
-      <div className="bg-[#1a1b23] rounded-xl border border-white/5 p-4 mb-6">
-        <div className="flex items-center justify-between">
-          {stepNames.map((name, idx) => {
-            const stepNum = idx + 1;
-            const status = getStepStatus(stepNum);
-            return (
-              <div key={stepNum} className="flex items-center flex-1 last:flex-none">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm transition-all ${
-                    status === 'completed' 
-                      ? 'bg-emerald-500 text-white' 
-                      : status === 'active'
-                        ? 'bg-[#5b68f6] text-white'
-                        : 'bg-[#23242f] text-gray-500'
-                  }`}>
-                    {status === 'completed' ? <Check className="w-5 h-5" /> : stepNum}
-                  </div>
-                  <div className="hidden sm:block">
-                    <p className={`text-sm font-medium ${status === 'active' ? 'text-white' : 'text-gray-400'}`}>
-                      {name}
-                    </p>
-                    <p className="text-xs text-gray-500">Adım {stepNum}</p>
-                  </div>
-                </div>
-                {stepNum < totalSteps && (
-                  <div className={`flex-1 h-0.5 mx-4 rounded-full transition-colors ${
-                    status === 'completed' ? 'bg-emerald-500' : 'bg-[#23242f]'
-                  }`} />
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {stepNames.map((name, idx) => {
+          const stepNum = idx + 1;
+          const status = getStepStatus(stepNum);
+          return (
+            <div key={stepNum} className={`rounded-xl border p-5 flex items-start gap-4 ${
+              status === 'active'
+                ? 'bg-amber-500/10 border-amber-500/30'
+                : 'bg-[#1a1b23] border-white/5'
+            }`}>
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+                status === 'completed'
+                  ? 'bg-emerald-500/20'
+                  : status === 'active'
+                    ? 'bg-amber-500/20'
+                    : 'bg-[#23242f]'
+              }`}>
+                {status === 'completed' ? (
+                  <Check className="w-5 h-5 text-emerald-400" />
+                ) : (
+                  <span className={`text-sm font-bold ${status === 'active' ? 'text-amber-400' : 'text-gray-400'}`}>{stepNum}</span>
                 )}
               </div>
-            );
-          })}
-        </div>
-      </div>
+              <div>
+                <span className="text-xs font-bold text-amber-400">ADIM {stepNum}</span>
+                <h3 className="text-sm font-bold text-white mb-1">{name}</h3>
+                <p className="text-xs text-gray-400">
+                  {status === 'completed' ? 'Tamamlandı' : status === 'active' ? 'Şu an bu adımda ilerliyorsunuz' : 'Sıradaki hazırlık adımı'}
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Form */}
@@ -439,7 +462,7 @@ export default function IlanEkle() {
                       onClick={() => setFormData({ ...formData, productType: type.id as any })}
                       className={`p-5 rounded-xl border-2 text-left transition-all ${
                         formData.productType === type.id
-                          ? 'border-[#5b68f6] bg-white'
+                          ? 'border-amber-500 bg-amber-500/10'
                           : 'border-white/5 bg-[#111218] hover:border-white/10'
                       }`}
                     >
@@ -448,12 +471,12 @@ export default function IlanEkle() {
                           <type.icon className="w-5 h-5" style={{ color: type.color }} />
                         </div>
                         <div>
-                          <p className={`font-bold ${formData.productType === type.id ? 'text-gray-800' : 'text-white'}`}>{type.name}</p>
-                          <p className={`text-xs ${formData.productType === type.id ? 'text-gray-500' : 'text-gray-400'}`}>{type.description}</p>
+                          <p className="font-bold text-white">{type.name}</p>
+                          <p className="text-xs text-gray-400">{type.description}</p>
                         </div>
                       </div>
                       {formData.productType === type.id && (
-                        <div className="flex items-center gap-1 text-[#5b68f6] text-sm font-medium">
+                        <div className="flex items-center gap-1 text-amber-400 text-sm font-medium">
                           <Check className="w-4 h-4" />
                           Seçildi
                         </div>
@@ -512,7 +535,7 @@ export default function IlanEkle() {
                                 setShowCategorySearch(false);
                               }}
                               className={`w-full flex items-center gap-3 p-3 hover:bg-[#1a1b23] transition-colors ${
-                                formData.category === cat.id ? 'bg-[#5b68f6]/10' : ''
+                                formData.category === cat.id ? 'bg-amber-500/10' : ''
                               }`}
                             >
                               <span className="text-xl">{cat.icon}</span>
@@ -521,7 +544,7 @@ export default function IlanEkle() {
                                 <p className="text-xs text-gray-400">{cat.id}</p>
                               </div>
                               {formData.category === cat.id && (
-                                <Check className="w-4 h-4 text-[#5b68f6] ml-auto" />
+                                <Check className="w-4 h-4 text-amber-400 ml-auto" />
                               )}
                             </button>
                           ))}
@@ -532,12 +555,12 @@ export default function IlanEkle() {
 
                   {/* Selected Category Display */}
                   {formData.category && (
-                    <div className="mb-4 p-3 bg-white rounded-xl flex items-center justify-between">
+                    <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <span className="text-xl">{ALL_CATEGORIES.find(c => c.id === formData.category)?.icon}</span>
                         <div>
-                          <p className="text-sm font-bold text-gray-800">{ALL_CATEGORIES.find(c => c.id === formData.category)?.name}</p>
-                          <p className="text-xs text-gray-500">Seçili kategori</p>
+                          <p className="text-sm font-bold text-white">{ALL_CATEGORIES.find(c => c.id === formData.category)?.name}</p>
+                          <p className="text-xs text-gray-400">Seçili kategori</p>
                         </div>
                       </div>
                       <button
@@ -563,7 +586,7 @@ export default function IlanEkle() {
                               onClick={() => setFormData({ ...formData, category: cat.id })}
                               className={`p-3 rounded-lg border text-center transition-all hover:scale-105 ${
                                 formData.category === cat.id
-                                  ? 'border-[#5b68f6] bg-[#5b68f6]/20'
+                                  ? 'border-amber-500 bg-amber-500/20'
                                   : 'border-white/5 bg-[#111218] hover:border-white/10'
                               }`}
                             >
@@ -1003,7 +1026,7 @@ export default function IlanEkle() {
                   type="button"
                   onClick={nextStep}
                   disabled={!canProceedToStep((currentStep + 1) as Step)}
-                  className="flex items-center gap-2 bg-[#5b68f6] hover:bg-[#4a55d6] disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-xl font-medium transition-colors"
+                  className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-xl font-medium transition-colors"
                 >
                   İleri
                   <ChevronRight className="w-4 h-4" />
@@ -1036,8 +1059,8 @@ export default function IlanEkle() {
           {/* Tips Card */}
           <div className="bg-[#1a1b23] rounded-xl border border-white/5 p-5">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-[#5b68f6]/20 rounded-lg flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-[#5b68f6]" />
+              <div className="w-10 h-10 bg-amber-500/20 rounded-lg flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-amber-500" />
               </div>
               <h3 className="font-bold text-white">İlan İpuçları</h3>
             </div>
@@ -1062,7 +1085,7 @@ export default function IlanEkle() {
           {/* Requirements */}
           <div className="bg-[#1a1b23] rounded-xl border border-white/5 p-5">
             <h3 className="font-bold text-white mb-4 flex items-center gap-2">
-              <Shield className="w-4 h-4 text-emerald-400" />
+              <Shield className="w-4 h-4 text-amber-400" />
               Gereksinimler
             </h3>
             <div className="space-y-3">
@@ -1090,7 +1113,7 @@ export default function IlanEkle() {
           </div>
 
           {/* Stats */}
-          <div className="bg-gradient-to-br from-[#5b68f6]/20 to-[#8b5cf6]/20 rounded-xl border border-[#5b68f6]/20 p-5">
+          <div className="bg-gradient-to-br from-amber-500/20 to-orange-500/20 rounded-xl border border-amber-500/20 p-5">
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center">
                 <p className="text-2xl font-bold text-white">0%</p>
