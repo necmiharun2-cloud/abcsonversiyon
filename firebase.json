@@ -5,6 +5,120 @@
   "functions": {
     "source": "functions"
   },
+  "hosting": {
+    "public": "dist",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [
+      {
+        "source": "/",
+        "function": "botSsr"
+      },
+      {
+        "source": "/ilan-pazari",
+        "function": "botSsr"
+      },
+      {
+        "source": "/alim-ilanlari",
+        "function": "botSsr"
+      },
+      {
+        "source": "/sss",
+        "function": "botSsr"
+      },
+      {
+        "source": "/hakkimizda",
+        "function": "botSsr"
+      },
+      {
+        "source": "/gizlilik-politikasi",
+        "function": "botSsr"
+      },
+      {
+        "source": "/kullanici-sozlesmesi",
+        "function": "botSsr"
+      },
+      {
+        "source": "/iade-politikasi",
+        "function": "botSsr"
+      },
+      {
+        "source": "/mesafeli-satis-sozlesmesi",
+        "function": "botSsr"
+      },
+      {
+        "source": "/legal/telif-ihlali",
+        "function": "botSsr"
+      },
+      {
+        "source": "/blog/**",
+        "function": "botSsr"
+      },
+      {
+        "source": "/login",
+        "function": "botSsr"
+      },
+      {
+        "source": "/register",
+        "function": "botSsr"
+      },
+      {
+        "source": "/destek-sistemi",
+        "function": "botSsr"
+      },
+      {
+        "source": "/roblox",
+        "function": "botSsr"
+      },
+      {
+        "source": "/cd-key",
+        "function": "botSsr"
+      },
+      {
+        "source": "/hediye-kartlari",
+        "function": "botSsr"
+      },
+      {
+        "source": "/cekilisler",
+        "function": "botSsr"
+      },
+      {
+        "source": "/magazalar",
+        "function": "botSsr"
+      },
+      {
+        "source": "/tum-kategoriler",
+        "function": "botSsr"
+      },
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "**/*.@(js|css)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "max-age=31536000"
+          }
+        ]
+      },
+      {
+        "source": "**",
+        "headers": [
+          {
+            "key": "X-Frame-Options",
+            "value": "SAMEORIGIN"
+          },
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          }
+        ]
+      }
+    ]
+  },
   "emulators": {
     "auth": { "port": 9099 },
     "functions": { "port": 5001 },

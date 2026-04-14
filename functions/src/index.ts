@@ -20,6 +20,9 @@ export {
   testSMTPConnection,
 } from './email';
 
+// SSR for SEO
+export { ssr, botSsr } from './ssr';
+
 // -----------------------------------------------------------------------------
 // Mock Payment Intent + Webhook (provider erişimi gelene kadar)
 // -----------------------------------------------------------------------------
