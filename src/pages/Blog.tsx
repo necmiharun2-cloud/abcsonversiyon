@@ -3,6 +3,7 @@ import {
   TrendingUp, Bookmark, ChevronRight, Calendar
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import SEOHead from '../components/SEOHead';
 import { blogPosts } from '../data/blogPosts';
 import { useState, useMemo } from 'react';
 
@@ -43,6 +44,8 @@ export default function Blog() {
   }, [searchQuery, activeCategory]);
 
   return (
+    <>
+    <SEOHead title="Blog" description="Oyun dünyasından haberler, ipuçları ve rehberler. Valorant, Roblox, CS2 ve daha fazlası hakkında güncel içerikler." canonical="/blog" />
     <div className="space-y-6">
       {/* Hero Section */}
       <div className="bg-gradient-to-r from-[#1a1b23] via-[#2a3050] to-[#1a1b23] rounded-2xl border border-white/5 p-6 sm:p-8 relative overflow-hidden">
@@ -327,5 +330,6 @@ export default function Blog() {
         </div>
       </div>
     </div>
+    </>
   );
 }

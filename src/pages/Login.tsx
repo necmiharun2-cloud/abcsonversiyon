@@ -1,6 +1,7 @@
 import { Mail, Lock, LogIn, Phone, KeyRound } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
+import SEOHead from '../components/SEOHead';
 import { GoogleAuthProvider, signInWithEmailAndPassword, signInWithPopup, RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
 import { auth, missingFirebaseEnvKeys } from '../firebase';
 import toast from 'react-hot-toast';
@@ -170,6 +171,8 @@ export default function Login() {
   };
 
   return (
+    <>
+    <SEOHead title="Giriş Yap" description="itemTR hesabınıza giriş yapın. Güvenli alışveriş için hemen oturum açın." canonical="/login" />
     <div className="relative -mx-4 sm:-mx-6 lg:-mx-8 -mt-6">
       <div className="absolute inset-0">
         <img
@@ -340,5 +343,6 @@ export default function Login() {
         </div>
       </div>
     </div>
+    </>
   );
 }

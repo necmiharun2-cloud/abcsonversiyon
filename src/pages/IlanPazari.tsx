@@ -3,6 +3,7 @@ import {
   RefreshCw, TrendingUp, Package, Users, Gamepad2, Smartphone, CreditCard,
   ChevronRight, Sparkles, Clock, CheckCircle, Crown, ShoppingBag
 } from 'lucide-react';
+import SEOHead from '../components/SEOHead';
 import ShowcaseListings from '../components/ShowcaseListings';
 import MarketplaceListings from '../components/MarketplaceListings';
 import { useEffect, useState } from 'react';
@@ -111,6 +112,12 @@ export default function IlanPazari() {
   );
 
   return (
+    <>
+    <SEOHead
+      title="İlan Pazarı"
+      description="Valorant, Roblox, CS2 ve daha fazla oyun için ilanlar. Güvenli alım satım, hızlı teslimat."
+      canonical="/ilan-pazari"
+    />
     <div className="space-y-6">
       {/* Hero Section */}
       <div className="bg-gradient-to-r from-[#1a1b23] via-[#2a3050] to-[#1a1b23] rounded-2xl border border-white/5 p-6 sm:p-8 relative overflow-hidden">
@@ -393,5 +400,6 @@ export default function IlanPazari() {
         </div>
       </div>
     </div>
+    </>
   );
 }

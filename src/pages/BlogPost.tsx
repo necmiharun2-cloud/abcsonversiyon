@@ -1,5 +1,6 @@
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Clock, User } from 'lucide-react';
+import SEOHead from '../components/SEOHead';
 import { blogPosts } from '../data/blogPosts';
 
 export default function BlogPost() {
@@ -9,6 +10,8 @@ export default function BlogPost() {
   if (!post) return <Navigate to="/blog" replace />;
 
   return (
+    <>
+    <SEOHead title={post.title} description={post.excerpt} canonical={`/blog/${post.id}`} />
     <div className="max-w-4xl mx-auto space-y-6">
       <Link to="/blog" className="inline-flex items-center gap-2 text-sm text-gray-300 hover:text-white transition-colors">
         <ArrowLeft className="w-4 h-4" />
@@ -28,5 +31,6 @@ export default function BlogPost() {
         </div>
       </article>
     </div>
+    </>
   );
 }

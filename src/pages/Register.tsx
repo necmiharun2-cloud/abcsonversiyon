@@ -1,6 +1,7 @@
 import { User, Mail, Lock, UserPlus, Smartphone } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import React, { useState } from 'react';
+import SEOHead from '../components/SEOHead';
 import { createUserWithEmailAndPassword, GoogleAuthProvider, sendEmailVerification, signInWithPopup, updateProfile } from 'firebase/auth';
 import { auth, db, functions, missingFirebaseEnvKeys } from '../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -179,6 +180,8 @@ export default function Register() {
   };
 
   return (
+    <>
+    <SEOHead title="Kayıt Ol" description="itemTR'ye üye olun. Güvenli oyun içi alışveriş için hemen kaydolun." canonical="/register" />
     <div className="relative -mx-4 sm:-mx-6 lg:-mx-8 -mt-6">
       <div className="absolute inset-0">
         <img
@@ -307,5 +310,6 @@ export default function Register() {
         </div>
       </div>
     </div>
+    </>
   );
 }

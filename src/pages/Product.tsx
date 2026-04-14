@@ -1,5 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import SEOHead from '../components/SEOHead';
 import { useAuth } from '../contexts/AuthContext';
 import { db, storage } from '../firebase';
 import { doc, getDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
@@ -145,6 +146,13 @@ export default function Product() {
       </div>
 
       <SimilarProducts category={product.category} currentProductId={product.id} />
+      {product && (
+        <SEOHead
+          title={product.title || 'Ürün Detayı'}
+          description={product.description ? product.description.substring(0, 160) : 'Ürün detayları ve satın alma seçenekleri itemTR\'de.'}
+          canonical={`/product/${product.id}`}
+        />
+      )}
     </div>
   );
 }
