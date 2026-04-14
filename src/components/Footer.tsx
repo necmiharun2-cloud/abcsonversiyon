@@ -26,7 +26,7 @@ export default function Footer() {
           <div>
             <h3 className="text-white font-bold text-sm mb-4">Kurumsal</h3>
             <ul className="space-y-2">
-              <li><Link to="/gizlilik-politikasi" className="text-white/60 hover:text-white transition-colors text-xs">Gizlilik Sözleşmesi</Link></li>
+              <li><Link to="/gizlilik-politikasi" className="text-white/60 hover:text-white transition-colors text-xs">Gizlilik Politikası</Link></li>
               <li><Link to="/gizlilik-politikasi" className="text-white/60 hover:text-white transition-colors text-xs">KVKK Politikası</Link></li>
               <li><Link to="/kullanici-sozlesmesi" className="text-white/60 hover:text-white transition-colors text-xs">Üyelik Sözleşmesi</Link></li>
               <li><Link to="/kullanici-sozlesmesi" className="text-white/60 hover:text-white transition-colors text-xs">Kullanım Koşulları</Link></li>
