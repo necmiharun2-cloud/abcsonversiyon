@@ -12,16 +12,22 @@ function clamp01(n: number) {
 }
 
 export default function SecureLoginOverlay() {
-  const { user, profile, loading } = useAuth();
+  const { user, loading } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const state = (location.state || {}) as AuthTransitionState;
 
   const [shownAt] = useState(() => Date.now());
   const [minElapsed, setMinElapsed] = useState(false);
+  const [maxElapsed, setMaxElapsed] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setMinElapsed(true), 1200);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => setMaxElapsed(true), 12000);
     return () => clearTimeout(t);
   }, []);
 
@@ -29,19 +35,17 @@ export default function SecureLoginOverlay() {
     if (!state.authTransition) return 'off';
     if (!user) return 'auth';
     if (loading) return 'profile';
-    if (!profile) return 'profile';
     return 'done';
-  }, [state.authTransition, user, loading, profile]);
+  }, [state.authTransition, user, loading]);
 
-  const isOpen = state.authTransition && (phase !== 'done' || !minElapsed);
+  const isOpen = state.authTransition && !maxElapsed && (phase !== 'done' || !minElapsed);
 
   useEffect(() => {
     if (!state.authTransition) return;
-    if (phase !== 'done') return;
-    if (!minElapsed) return;
+    if (!maxElapsed && (phase !== 'done' || !minElapsed)) return;
     // Transition bitti: state'i temizle (yenilemede tekrar görünmesin)
     navigate(location.pathname + location.search, { replace: true, state: {} });
-  }, [state.authTransition, phase, minElapsed, navigate, location.pathname, location.search]);
+  }, [state.authTransition, phase, minElapsed, maxElapsed, navigate, location.pathname, location.search]);
 
   const progress = useMemo(() => {
     const ms = Date.now() - shownAt;
