@@ -38,9 +38,9 @@ export default function Layout() {
       <Header />
       <Navbar />
       
-      <main className={isHome ? '' : 'max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6'}>
+      <main className={isHome ? '' : 'max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4'}>
         {!isHome && (
-          <div className="mb-4 flex items-center">
+          <div className="mb-2 flex items-center">
             <button
               type="button"
               onClick={() => {
@@ -50,7 +50,7 @@ export default function Layout() {
                 }
                 navigate('/');
               }}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
               aria-label="Geri dön"
             >
               <ArrowLeft className="w-4 h-4" />
