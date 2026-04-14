@@ -37,6 +37,19 @@
     }
   ],
   "rewrites": [
+    { "source": "/ilan-pazari", "destination": "/ilan-pazari/index.html" },
+    { "source": "/alim-ilanlari", "destination": "/alim-ilanlari/index.html" },
+    { "source": "/sss", "destination": "/sss/index.html" },
+    { "source": "/hakkimizda", "destination": "/hakkimizda/index.html" },
+    { "source": "/gizlilik-politikasi", "destination": "/gizlilik-politikasi/index.html" },
+    { "source": "/kullanici-sozlesmesi", "destination": "/kullanici-sozlesmesi/index.html" },
+    { "source": "/iade-politikasi", "destination": "/iade-politikasi/index.html" },
+    { "source": "/mesafeli-satis-sozlesmesi", "destination": "/mesafeli-satis-sozlesmesi/index.html" },
+    { "source": "/legal/telif-ihlali", "destination": "/legal/telif-ihlali/index.html" },
+    { "source": "/blog", "destination": "/blog/index.html" },
+    { "source": "/login", "destination": "/login/index.html" },
+    { "source": "/register", "destination": "/register/index.html" },
+    { "source": "/destek-sistemi", "destination": "/destek-sistemi/index.html" },
     { "source": "/:path*", "destination": "/index.html" }
   ],
   "headers": [
