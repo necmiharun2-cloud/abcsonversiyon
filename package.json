@@ -5,11 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
-    "build": "vite build",
+    "build": "vite build && node scripts/prerender.cjs",
     "preview": "vite preview --host --port 4173",
     "serve": "npx serve dist -s -l 4173",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "prerender": "node scripts/prerender.cjs"
   },
   "dependencies": {
     "@emailjs/browser": "^4.4.1",
