@@ -32,6 +32,7 @@ export default function Footer() {
               <li><Link to="/kullanici-sozlesmesi" className="text-white/60 hover:text-white transition-colors text-xs">Kullanım Koşulları</Link></li>
               <li><Link to="/mesafeli-satis-sozlesmesi" className="text-white/60 hover:text-white transition-colors text-xs">Mesafeli Satış</Link></li>
               <li><Link to="/iade-politikasi" className="text-white/60 hover:text-white transition-colors text-xs">İptal & İade</Link></li>
+              <li><Link to="/legal/telif-ihlali" className="text-white/60 hover:text-white transition-colors text-xs">Telif Hakkı İhlali</Link></li>
             </ul>
           </div>
 
@@ -141,7 +142,7 @@ export default function Footer() {
             </Link>
           </div>
           <p className="text-white/40 text-xs text-center">
-            © 2024-2026 itemTR. Tüm hakları saklıdır. Bu bir klon projesidir.
+            © 2024-2026 itemTR. Tüm hakları saklıdır.
           </p>
           <div className="flex items-center gap-2">
             <div className="bg-[#1a1d2e] border border-white/10 rounded px-2 py-1 text-[10px] font-bold text-white/40">ETBİS</div>

@@ -1,8 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import AppErrorBoundary from './components/AppErrorBoundary';
 import { Toaster } from 'react-hot-toast';
@@ -59,6 +54,7 @@ import ServerTanitimi from './pages/ServerTanitimi';
 import ServerTanitimiDetay from './pages/ServerTanitimiDetay';
 import MagazaBasvurusu from './pages/MagazaBasvurusu';
 import BakiyeYukle from './pages/BakiyeYukle';
+import TelitIhlali from './pages/TelitIhlali';
 import ShopierCheckout from './pages/ShopierCheckout';
 import ShopierPaymentResult from './pages/ShopierPaymentResult';
 import { missingFirebaseEnvKeys } from './firebase';
@@ -175,6 +171,7 @@ export default function App() {
               <Route path="gizlilik-politikasi" element={<Privacy />} />
               <Route path="mesafeli-satis-sozlesmesi" element={<DistanceSales />} />
               <Route path="iade-politikasi" element={<RefundPolicy />} />
+              <Route path="legal/telif-ihlali" element={<TelitIhlali />} />
               <Route path="sss" element={<FAQ />} />
               <Route path="login" element={<Login />} />
               <Route path="register" element={<Register />} />

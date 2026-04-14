@@ -1,6 +1,12 @@
+import { useEffect } from 'react';
 import { Shield, Lock, Eye, FileText } from 'lucide-react';
 
 export default function Privacy() {
+  useEffect(() => {
+    document.title = 'Gizlilik Politikası | itemTR';
+    return () => { document.title = 'itemTR - Güvenli Oyun İçi Alışveriş ve İlan Pazarı'; };
+  }, []);
+
   return (
     <div className="max-w-4xl mx-auto py-12 px-4">
       <div className="bg-[#1a1b23] rounded-2xl border border-white/5 p-8 md:p-12">

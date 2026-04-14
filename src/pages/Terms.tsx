@@ -1,7 +1,12 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { FileText, ShieldCheck } from 'lucide-react';
 
 export default function Terms() {
+  useEffect(() => {
+    document.title = 'Kullanıcı Sözleşmesi | itemTR';
+    return () => { document.title = 'itemTR - Güvenli Oyun İçi Alışveriş ve İlan Pazarı'; };
+  }, []);
+
   return (
     <div className="max-w-4xl mx-auto py-12 px-4">
       <div className="flex items-center gap-4 mb-8">

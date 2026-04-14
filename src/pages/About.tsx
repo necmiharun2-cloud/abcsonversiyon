@@ -1,7 +1,12 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Info, Shield, CheckCircle } from 'lucide-react';
 
 export default function About() {
+  useEffect(() => {
+    document.title = 'Hakkımızda | itemTR';
+    return () => { document.title = 'itemTR - Güvenli Oyun İçi Alışveriş ve İlan Pazarı'; };
+  }, []);
+
   return (
     <div className="max-w-4xl mx-auto py-12 px-4">
       <div className="text-center mb-12">

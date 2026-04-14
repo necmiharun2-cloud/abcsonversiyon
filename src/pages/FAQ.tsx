@@ -2,7 +2,7 @@ import {
   HelpCircle, ChevronDown, ChevronUp, Search, Package, CreditCard, 
   User, Shield, BookOpen, ArrowLeft, Star, TrendingUp
 } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 const CATEGORIES = [
@@ -114,6 +114,11 @@ export default function FAQ() {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
+
+  useEffect(() => {
+    document.title = 'Sıkça Sorulan Sorular | itemTR';
+    return () => { document.title = 'itemTR - Güvenli Oyun İçi Alışveriş ve İlan Pazarı'; };
+  }, []);
 
   const filteredFAQs = useMemo(() => {
     let faqs = FAQS;
