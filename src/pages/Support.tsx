@@ -3,7 +3,8 @@ import {
   CheckCircle2, AlertCircle, X, HelpCircle, BookOpen, Shield, CreditCard,
   Package, User, Search, Mail, Phone, MessageCircle
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import SEOHead from '../components/SEOHead';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebase';
@@ -54,7 +55,7 @@ const HELP_CATEGORIES = [
   { icon: BookOpen, label: 'İpuçları', count: 20, color: 'text-cyan-400' },
 ];
 
-function CashWithdrawIcon(props: React.SVGProps<SVGSVGElement>) {
+function CashWithdrawIcon(props: React.SVGProps<SVGSVGElement> & { className?: string }) {
   return <CreditCard {...props} />;
 }
 
@@ -89,7 +90,7 @@ export default function Support() {
     return unsubscribe;
   }, [user]);
 
-  const handleCreateTicket = async (e: React.FormEvent) => {
+  const handleCreateTicket = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!user) {
       toast.error('Giriş yapmalısınız.');
@@ -164,6 +165,8 @@ export default function Support() {
   };
 
   return (
+    <>
+    <SEOHead title="Destek Sistemi" description="itemTR destek sistemi: yardım talepleri, sıkça sorulan sorular ve canlı destek." canonical="/destek-sistemi" />
     <div className="max-w-[1400px] mx-auto space-y-6">
       {/* Hero Section */}
       <div className="bg-gradient-to-r from-[#1a1b23] via-[#2a3050] to-[#1a1b23] rounded-2xl border border-white/5 p-6 sm:p-8 relative overflow-hidden">
@@ -472,5 +475,6 @@ export default function Support() {
         </div>
       )}
     </div>
+    </>
   );
 }
