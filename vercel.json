@@ -9,6 +9,31 @@
       "has": [{ "type": "host", "value": "www.itemtr.com" }],
       "destination": "https://itemtr.com/:path*",
       "permanent": true
+    },
+    {
+      "source": "/legal/telif-ihlali/",
+      "destination": "/legal/telif-ihlali",
+      "permanent": true
+    },
+    {
+      "source": "/login/",
+      "destination": "/login",
+      "permanent": true
+    },
+    {
+      "source": "/register/",
+      "destination": "/register",
+      "permanent": true
+    },
+    {
+      "source": "/ilan-pazari/",
+      "destination": "/ilan-pazari",
+      "permanent": true
+    },
+    {
+      "source": "/:path*/",
+      "destination": "/:path*",
+      "permanent": true
     }
   ],
   "rewrites": [
