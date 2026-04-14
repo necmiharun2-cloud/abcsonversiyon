@@ -73,7 +73,13 @@ export const chatService = {
   getChats(userId: string, callback: (chats: Chat[]) => void) {
     const q = query(collection(db, 'chats'), where('participants', 'array-contains', userId));
     return onSnapshot(q, (snapshot) => {
-      const chats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Chat));
+      const chats = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as Chat))
+        .sort((a, b) => {
+          const aMs = a.lastMessageAt?.toDate?.()?.getTime?.() || 0;
+          const bMs = b.lastMessageAt?.toDate?.()?.getTime?.() || 0;
+          return bMs - aMs;
+        });
       callback(chats);
     });
   },
@@ -104,6 +110,31 @@ export const chatService = {
       lastMessage: text,
       lastMessageAt: serverTimestamp()
     }, { merge: true });
+
+    try {
+      const chatSnap = await getDoc(doc(db, 'chats', chatId));
+      if (!chatSnap.exists()) return;
+      const chatData = chatSnap.data() as { participants?: string[]; participantNames?: Record<string, string> };
+      const participants = Array.isArray(chatData.participants) ? chatData.participants : [];
+      const senderName = chatData.participantNames?.[senderId] || 'Yeni mesaj';
+      const snippet = text.length > 80 ? `${text.slice(0, 80)}...` : text;
+
+      await Promise.all(
+        participants
+          .filter(uid => uid && uid !== senderId)
+          .map(uid => addDoc(collection(db, 'notifications'), {
+            userId: uid,
+            title: senderName,
+            message: snippet,
+            type: 'message',
+            isRead: false,
+            link: '/mesajlarim',
+            createdAt: serverTimestamp(),
+          }))
+      );
+    } catch {
+      // no-op: messaging must continue even if notification write fails
+    }
   },
 
   async deleteChat(chatId: string) {

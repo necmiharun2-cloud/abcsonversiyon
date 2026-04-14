@@ -475,10 +475,10 @@ export default function Dashboard() {
               <Link to="/ilan-ekle" className="flex items-center gap-2 text-sm text-white bg-[#5b68f6] hover:bg-[#5b68f6]/80 rounded-lg px-3 py-2 transition-colors">
                 <Plus className="w-4 h-4" />Yeni İlan Ekle
               </Link>
-              <button className="w-full flex items-center gap-2 text-sm text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg px-3 py-2 transition-colors">
+              <Link to="/ilan-yukari-tasima" className="w-full flex items-center gap-2 text-sm text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg px-3 py-2 transition-colors">
                 <RefreshCw className="w-4 h-4" />İlanları Yenile (Premium)
-              </button>
-              <Link to="/bakiye-yukle" className="flex items-center gap-2 text-sm text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg px-3 py-2 transition-colors">
+              </Link>
+              <Link to="/para-cek" className="flex items-center gap-2 text-sm text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg px-3 py-2 transition-colors">
                 <Wallet className="w-4 h-4" />Para Çek
               </Link>
             </div>

@@ -6,19 +6,21 @@ import Footer from './Footer';
 import FloatingChat from './FloatingChat';
 import NotificationModal from './NotificationModal';
 import SecureLoginOverlay from './SecureLoginOverlay';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSiteSettings } from '../hooks/useSiteSettings';
 import { sendEmailVerification, signOut } from 'firebase/auth';
 import { auth } from '../firebase';
 import { useState } from 'react';
+import { ArrowLeft } from 'lucide-react';
 
 export default function Layout() {
   const { user, profile, loading } = useAuth();
   const settings = useSiteSettings();
   const isStaff = profile?.role === 'admin' || profile?.role === 'moderator';
   const location = useLocation();
+  const navigate = useNavigate();
   const isHome = location.pathname === '/';
   const [verifyBusy, setVerifyBusy] = useState(false);
 
@@ -37,6 +39,25 @@ export default function Layout() {
       <Navbar />
       
       <main className={isHome ? '' : 'max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6'}>
+        {!isHome && (
+          <div className="mb-4 flex items-center">
+            <button
+              type="button"
+              onClick={() => {
+                if (window.history.length > 1) {
+                  navigate(-1);
+                  return;
+                }
+                navigate('/');
+              }}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
+              aria-label="Geri dön"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="text-sm font-medium">Geri</span>
+            </button>
+          </div>
+        )}
         {needsEmailVerify && !loading && !settings.maintenanceMode && !isStaff && (
           <div className="mb-4">
             <div className="bg-[#1a1b23] border border-white/10 rounded-2xl p-4 sm:p-5">

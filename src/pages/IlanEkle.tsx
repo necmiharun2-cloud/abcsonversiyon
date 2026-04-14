@@ -1,15 +1,15 @@
-import { useState, FormEvent, useRef, useEffect } from 'react';
+import { useState, FormEvent, useRef, useEffect, ChangeEvent } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db, storage } from '../firebase';
 import { collection, addDoc, doc, serverTimestamp, setDoc, updateDoc, getDocs, query, where, limit } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { 
-  Upload, CheckCircle2, AlertCircle, Plus, Image, Tag, DollarSign, 
+import {
+  Upload, CheckCircle2, AlertCircle, Plus, Image, Tag, DollarSign,
   Package, Truck, FileText, ChevronRight, ChevronLeft, Sparkles,
   Zap, Shield, Info, X, Check, Layers, CreditCard, Send, Search,
-  TrendingUp, TrendingDown, BarChart3, Lightbulb
+  TrendingUp, Lightbulb
 } from 'lucide-react';
 import { analyzeListingQuality, type SmartListingAnalysis } from '../services/listingModerationService';
 
@@ -158,6 +158,7 @@ export default function IlanEkle() {
     category: '',
     subcategory: '',
     deliveryType: 'auto',
+    autoDeliveryMessage: '',
     stock: '1',
     productType: 'account' as 'account' | 'epin',
   });
@@ -190,6 +191,8 @@ export default function IlanEkle() {
   const totalSteps = 4;
   const stepNames = ['Tür & Kategori', 'Ürün Detayları', 'Teslimat', 'Görsel & Onay'];
 
+  const requiresAutoMessage = formData.productType === 'account' && formData.deliveryType === 'auto';
+
   const isFormValid =
     formData.title.trim().length > 0 &&
     formData.category.trim().length > 0 &&
@@ -198,6 +201,7 @@ export default function IlanEkle() {
     (formData.productType === 'epin'
       ? epinCodesRaw.trim().length > 0
       : Number(formData.stock) > 0) &&
+    (!requiresAutoMessage || formData.autoDeliveryMessage.trim().length >= 8) &&
     !!imageFile;
 
   const handleSubmit = async (e: FormEvent) => {
@@ -291,6 +295,7 @@ export default function IlanEkle() {
       } else {
         await updateDoc(doc(db, 'products', created.id), {
           deliveryType: formData.deliveryType === 'auto' ? 'auto' : 'manual',
+          autoDeliveryMessage: requiresAutoMessage ? formData.autoDeliveryMessage.trim() : null,
         } as any);
       }
 
@@ -305,14 +310,21 @@ export default function IlanEkle() {
   };
 
   const canProceedToStep = (step: Step): boolean => {
+    const epinCodeCount = epinCodesRaw.split(/\r?\n/).map(l => l.trim()).filter(Boolean).length;
     switch (step) {
-      case 2:
+      case 1:
         return formData.productType !== '' && formData.category !== '';
-      case 3:
+      case 2:
         return formData.title.trim().length >= 5 && 
                formData.description.trim().length >= 20 && 
                Number(formData.price) > 0;
-      case 4:
+      case 3:
+        if (formData.productType === 'epin' && formData.deliveryType === 'auto') {
+          return epinCodeCount > 0;
+        }
+        if (requiresAutoMessage) {
+          return formData.autoDeliveryMessage.trim().length >= 8;
+        }
         return true;
       default:
         return true;
@@ -344,7 +356,7 @@ export default function IlanEkle() {
       )
     : [];
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setImageFile(file);
@@ -815,6 +827,36 @@ export default function IlanEkle() {
                         {epinCodesRaw.split(/\r?\n/).map(l => l.trim()).filter(Boolean).length} kod girildi
                       </div>
                       <p className="text-xs text-gray-500">Her satır = 1 kod</p>
+                    </div>
+                  </div>
+                )}
+
+                {formData.productType === 'account' && formData.deliveryType === 'auto' && (
+                  <div className="bg-[#111218] rounded-xl p-5 border border-emerald-500/20">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center">
+                        <Send className="w-5 h-5 text-emerald-400" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-white">Otomatik Teslimat Mesajı</p>
+                        <p className="text-xs text-gray-400">Ödeme sonrası alıcıya otomatik gönderilecek metin</p>
+                      </div>
+                    </div>
+
+                    <textarea
+                      value={formData.autoDeliveryMessage}
+                      onChange={(e) => setFormData({ ...formData, autoDeliveryMessage: e.target.value })}
+                      rows={5}
+                      placeholder="Örn: Teslimat detayları, hesap giriş bilgileri, önemli notlar..."
+                      className="w-full bg-[#1a1b23] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500/60 transition-colors resize-none text-sm"
+                      maxLength={1000}
+                    />
+
+                    <div className="flex items-center justify-between mt-2">
+                      <p className="text-xs text-gray-500">Min 8 karakter gerekli</p>
+                      <p className={`text-xs ${formData.autoDeliveryMessage.trim().length >= 8 ? 'text-emerald-400' : 'text-gray-500'}`}>
+                        {formData.autoDeliveryMessage.length}/1000
+                      </p>
                     </div>
                   </div>
                 )}

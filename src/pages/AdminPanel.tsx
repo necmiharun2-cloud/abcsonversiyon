@@ -151,8 +151,12 @@ export default function AdminPanel() {
         await runAllAutomations(cfg);
       } catch { /* silent background run */ }
     };
-    const timer = setTimeout(runAutomation, 5000);
-    return () => clearTimeout(timer);
+    const firstRun = setTimeout(runAutomation, 5000);
+    const interval = setInterval(runAutomation, 20 * 60 * 1000);
+    return () => {
+      clearTimeout(firstRun);
+      clearInterval(interval);
+    };
   }, [isAdmin]);
 
   if (!user) return <Navigate to="/login" replace />;
@@ -198,7 +202,7 @@ export default function AdminPanel() {
     }
   };
 
-  const totalAlerts = Object.values(badges).reduce((s, v) => s + v, 0);
+  const totalAlerts = Object.values(badges).reduce<number>((s, v) => s + Number(v || 0), 0);
 
   return (
     <div className="flex h-screen bg-[#111218] overflow-hidden">
@@ -233,7 +237,7 @@ export default function AdminPanel() {
               )}
               {group.items.map(item => {
                 const Icon = item.icon;
-                const badgeCount = item.badge ? (badges[item.badge] || 0) : 0;
+                const badgeCount: number = item.badge ? Number(badges[item.badge] || 0) : 0;
                 const isActive = activeTab === item.key;
                 return (
                   <button
