@@ -1,13 +1,10 @@
-import { useEffect } from 'react';
 import { Shield, AlertTriangle, Mail, FileText, CheckCircle2 } from 'lucide-react';
+import SEOHead from '../components/SEOHead';
 
 export default function TelitIhlali() {
-  useEffect(() => {
-    document.title = 'Telif Hakkı İhlali Bildirimi | itemTR';
-    return () => { document.title = 'itemTR - Güvenli Oyun İçi Alışveriş ve İlan Pazarı'; };
-  }, []);
-
   return (
+    <>
+    <SEOHead title="Telif Hakkı İhlali Bildirimi" description="itemTR telif hakkı ihlali bildirimi: DMCA ve fikri mülkiyet politikası, ihlal bildirme adımları ve iletişim bilgileri." canonical="/legal/telif-ihlali" />
     <div className="max-w-4xl mx-auto py-12 px-4">
       <div className="bg-[#1a1b23] rounded-2xl border border-white/5 p-8 md:p-12">
         <div className="flex items-center gap-4 mb-8">
@@ -109,5 +106,6 @@ export default function TelitIhlali() {
         </div>
       </div>
     </div>
+    </>
   );
 }

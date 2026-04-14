@@ -1,13 +1,11 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Info, Shield, CheckCircle } from 'lucide-react';
+import SEOHead from '../components/SEOHead';
 
 export default function About() {
-  useEffect(() => {
-    document.title = 'Hakkımızda | itemTR';
-    return () => { document.title = 'itemTR - Güvenli Oyun İçi Alışveriş ve İlan Pazarı'; };
-  }, []);
-
   return (
+    <>
+    <SEOHead title="Hakkımızda" description="itemTR hakkında: Türkiye'nin en güvenilir oyuncu pazar yeri, misyonumuz ve vizyonumuz." canonical="/hakkimizda" />
     <div className="max-w-4xl mx-auto py-12 px-4">
       <div className="text-center mb-12">
         <h1 className="text-3xl font-bold text-white mb-4">Hakkımızda</h1>
@@ -49,5 +47,6 @@ export default function About() {
         </p>
       </div>
     </div>
+    </>
   );
 }

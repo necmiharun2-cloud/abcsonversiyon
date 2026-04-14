@@ -1,13 +1,10 @@
-import { useEffect } from 'react';
 import { FileText, Truck, RefreshCcw, AlertCircle } from 'lucide-react';
+import SEOHead from '../components/SEOHead';
 
 export default function DistanceSales() {
-  useEffect(() => {
-    document.title = 'Mesafeli Satış Sözleşmesi | itemTR';
-    return () => { document.title = 'itemTR - Güvenli Oyun İçi Alışveriş ve İlan Pazarı'; };
-  }, []);
-
   return (
+    <>
+    <SEOHead title="Mesafeli Satış Sözleşmesi" description="itemTR mesafeli satış sözleşmesi: 6502 sayılı kanun ve TKHK kapsamında satıcı ve alıcı haklarınızı öğrenin." canonical="/mesafeli-satis-sozlesmesi" />
     <div className="max-w-4xl mx-auto py-12 px-4">
       <div className="bg-[#1a1b23] rounded-2xl border border-white/5 p-8 md:p-12">
         <div className="flex items-center gap-4 mb-8">
@@ -61,5 +58,6 @@ export default function DistanceSales() {
         </div>
       </div>
     </div>
+    </>
   );
 }

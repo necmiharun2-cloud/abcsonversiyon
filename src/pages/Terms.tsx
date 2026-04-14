@@ -1,13 +1,11 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { FileText, ShieldCheck } from 'lucide-react';
+import SEOHead from '../components/SEOHead';
 
 export default function Terms() {
-  useEffect(() => {
-    document.title = 'Kullanıcı Sözleşmesi | itemTR';
-    return () => { document.title = 'itemTR - Güvenli Oyun İçi Alışveriş ve İlan Pazarı'; };
-  }, []);
-
   return (
+    <>
+    <SEOHead title="Kullanıcı Sözleşmesi" description="itemTR kullanıcı sözleşmesi: platforma üye olarak kabul ettiğiniz kullanım koşulları ve üyelik kuralları." canonical="/kullanici-sozlesmesi" />
     <div className="max-w-4xl mx-auto py-12 px-4">
       <div className="flex items-center gap-4 mb-8">
         <div className="bg-[#5b68f6]/10 p-3 rounded-xl">
@@ -60,5 +58,6 @@ export default function Terms() {
         </div>
       </div>
     </div>
+    </>
   );
 }

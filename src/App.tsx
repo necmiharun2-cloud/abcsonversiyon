@@ -172,6 +172,10 @@ export default function App() {
               <Route path="mesafeli-satis-sozlesmesi" element={<DistanceSales />} />
               <Route path="iade-politikasi" element={<RefundPolicy />} />
               <Route path="legal/telif-ihlali" element={<TelitIhlali />} />
+              <Route path="legal/gizlilik" element={<Navigate to="/gizlilik-politikasi" replace />} />
+              <Route path="legal/iade" element={<Navigate to="/iade-politikasi" replace />} />
+              <Route path="legal/mesafeli-satis" element={<Navigate to="/mesafeli-satis-sozlesmesi" replace />} />
+              <Route path="legal/kullanici-sozlesmesi" element={<Navigate to="/kullanici-sozlesmesi" replace />} />
               <Route path="sss" element={<FAQ />} />
               <Route path="login" element={<Login />} />
               <Route path="register" element={<Register />} />

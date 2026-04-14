@@ -1,13 +1,10 @@
-import { useEffect } from 'react';
 import { Shield, Lock, Eye, FileText } from 'lucide-react';
+import SEOHead from '../components/SEOHead';
 
 export default function Privacy() {
-  useEffect(() => {
-    document.title = 'Gizlilik Politikası | itemTR';
-    return () => { document.title = 'itemTR - Güvenli Oyun İçi Alışveriş ve İlan Pazarı'; };
-  }, []);
-
   return (
+    <>
+    <SEOHead title="Gizlilik Politikası" description="itemTR gizlilik politikası: kişisel verilerinizin nasıl toplandığı, kullanıldığı ve korunduğu hakkında bilgi edinin." canonical="/gizlilik-politikasi" />
     <div className="max-w-4xl mx-auto py-12 px-4">
       <div className="bg-[#1a1b23] rounded-2xl border border-white/5 p-8 md:p-12">
         <div className="flex items-center gap-4 mb-8">
@@ -64,5 +61,6 @@ export default function Privacy() {
         </div>
       </div>
     </div>
+    </>
   );
 }

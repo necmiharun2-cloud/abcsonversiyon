@@ -2,7 +2,8 @@ import {
   HelpCircle, ChevronDown, ChevronUp, Search, Package, CreditCard, 
   User, Shield, BookOpen, ArrowLeft, Star, TrendingUp
 } from 'lucide-react';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
+import SEOHead from '../components/SEOHead';
 import { Link } from 'react-router-dom';
 
 const CATEGORIES = [
@@ -115,11 +116,6 @@ export default function FAQ() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
 
-  useEffect(() => {
-    document.title = 'Sıkça Sorulan Sorular | itemTR';
-    return () => { document.title = 'itemTR - Güvenli Oyun İçi Alışveriş ve İlan Pazarı'; };
-  }, []);
-
   const filteredFAQs = useMemo(() => {
     let faqs = FAQS;
     
@@ -143,6 +139,8 @@ export default function FAQ() {
   }, [searchQuery, activeCategory]);
 
   return (
+    <>
+    <SEOHead title="Sıkça Sorulan Sorular" description="itemTR hakkında merak ettikleriniz: ilan satın alma, iade, ödeme, para çekme ve hesap yönetimi hakkında tüm soruların cevapları." canonical="/sss" />
     <div className="max-w-[1400px] mx-auto space-y-6">
       {/* Hero Section */}
       <div className="bg-gradient-to-r from-[#1a1b23] via-[#2a3050] to-[#1a1b23] rounded-2xl border border-white/5 p-6 sm:p-8 relative overflow-hidden">
@@ -307,5 +305,6 @@ export default function FAQ() {
         </div>
       </div>
     </div>
+    </>
   );
 }
