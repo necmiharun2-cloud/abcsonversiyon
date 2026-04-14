@@ -11,7 +11,7 @@ import {
 export default function HomeBuyListings() {
   const [listings, setListings] = useState<HomeListing[]>([]);
   const [loading, setLoading] = useState(true);
-  const [visibleCount, setVisibleCount] = useState(16);
+  const [visibleCount, setVisibleCount] = useState(12);
 
   const applyPairs = useCallback((pairs: { id: string; data: Record<string, unknown> }[]) => {
     const sorted = sortDocPairsNewestFirst(pairs);
@@ -20,14 +20,14 @@ export default function HomeBuyListings() {
       const status = String(data.status ?? '').toLowerCase();
       return type === 'buy' && status === 'active';
     });
-    setListings(buyOnly.map(({ id, data }) => mapProductDocToHomeListing(id, data)));
+    setListings(buyOnly.map(({ id, data }) => mapProductDocToHomeListing(id, data)).slice(0, 32));
   }, []);
 
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
       try {
-        const q = query(collection(db, 'products'), limit(200));
+        const q = query(collection(db, 'products'), limit(80));
         const snapshot = await getDocs(q);
         if (cancelled) return;
         const pairs = snapshot.docs.map((doc) => ({
@@ -93,6 +93,7 @@ export default function HomeBuyListings() {
                     <img
                       src={listing.image}
                       alt={listing.title}
+                      loading="lazy"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                   </div>
@@ -118,7 +119,7 @@ export default function HomeBuyListings() {
               <div className="mt-8 text-center">
                 <button
                   type="button"
-                  onClick={() => setVisibleCount((prev) => prev + 16)}
+                  onClick={() => setVisibleCount((prev) => prev + 12)}
                   className="px-8 py-2.5 rounded-full text-sm font-medium bg-amber-500 text-white hover:bg-amber-600 transition-colors"
                 >
                   + Daha fazla alım ilanı göster

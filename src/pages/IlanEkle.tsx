@@ -331,10 +331,37 @@ export default function IlanEkle() {
     }
   };
 
-  const nextStep = () => {
-    if (currentStep < 4 && canProceedToStep(currentStep as Step)) {
-      setCurrentStep((currentStep + 1) as Step);
+  const getStepValidationMessage = (step: Step): string => {
+    const epinCodeCount = epinCodesRaw.split(/\r?\n/).map(l => l.trim()).filter(Boolean).length;
+    switch (step) {
+      case 1:
+        if (!formData.category) return 'Devam etmek için bir kategori seçin.';
+        return 'Devam etmek için ilan türü ve kategori seçin.';
+      case 2:
+        if (formData.title.trim().length < 5) return 'Başlık en az 5 karakter olmalı.';
+        if (formData.description.trim().length < 20) return 'Açıklama en az 20 karakter olmalı.';
+        if (Number(formData.price) <= 0) return 'Geçerli bir fiyat girin.';
+        return 'Ürün detaylarını eksiksiz doldurun.';
+      case 3:
+        if (formData.productType === 'epin' && formData.deliveryType === 'auto' && epinCodeCount === 0) {
+          return 'Otomatik e-pin teslimatı için en az 1 kod girin.';
+        }
+        if (requiresAutoMessage && formData.autoDeliveryMessage.trim().length < 8) {
+          return 'Otomatik teslimat mesajı en az 8 karakter olmalı.';
+        }
+        return 'Teslimat bilgilerini tamamlayın.';
+      default:
+        return 'Devam etmek için gerekli alanları tamamlayın.';
     }
+  };
+
+  const nextStep = () => {
+    if (currentStep >= 4) return;
+    if (canProceedToStep(currentStep)) {
+      setCurrentStep((currentStep + 1) as Step);
+      return;
+    }
+    toast.error(getStepValidationMessage(currentStep));
   };
 
   const prevStep = () => {
@@ -1025,8 +1052,7 @@ export default function IlanEkle() {
                 <button
                   type="button"
                   onClick={nextStep}
-                  disabled={!canProceedToStep((currentStep + 1) as Step)}
-                  className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-xl font-medium transition-colors"
+                  className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-6 py-2.5 rounded-xl font-medium transition-colors"
                 >
                   İleri
                   <ChevronRight className="w-4 h-4" />

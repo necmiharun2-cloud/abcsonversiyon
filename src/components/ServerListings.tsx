@@ -12,19 +12,19 @@ import {
 export default function ServerListings() {
   const [listings, setListings] = useState<HomeListing[]>([]);
   const [loading, setLoading] = useState(true);
-  const [visibleCount, setVisibleCount] = useState(24);
+  const [visibleCount, setVisibleCount] = useState(16);
 
   const applyPairs = useCallback((pairs: { id: string; data: Record<string, unknown> }[]) => {
     const sorted = sortDocPairsNewestFirst(pairs);
     const serverOnly = sorted.filter(({ data }) => isServerTanitimCategory(data.category));
-    setListings(serverOnly.map(({ id, data }) => mapProductDocToHomeListing(id, data)));
+    setListings(serverOnly.map(({ id, data }) => mapProductDocToHomeListing(id, data)).slice(0, 32));
   }, []);
 
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
       try {
-        const q = query(collection(db, 'products'), limit(200));
+        const q = query(collection(db, 'products'), limit(80));
         const snapshot = await getDocs(q);
         if (cancelled) return;
         const pairs = snapshot.docs.map((doc) => ({
@@ -93,6 +93,7 @@ export default function ServerListings() {
                     <img
                       src={listing.image}
                       alt={listing.title}
+                      loading="lazy"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                   </div>
@@ -137,7 +138,7 @@ export default function ServerListings() {
               <div className="mt-8 text-center">
                 <button
                   type="button"
-                  onClick={() => setVisibleCount((prev) => prev + 24)}
+                  onClick={() => setVisibleCount((prev) => prev + 16)}
                   className="px-8 py-2.5 rounded-full text-sm font-medium bg-[#8b5cf6] text-white hover:bg-[#7c3aed] transition-colors"
                 >
                   + Daha fazla server tanıtımı göster

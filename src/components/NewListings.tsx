@@ -10,23 +10,10 @@ import {
   type HomeListing,
 } from '../lib/homeListingUtils';
 
-function expandList(source: HomeListing[], minTotal = 24, cap = 72): HomeListing[] {
-  if (source.length === 0) return source;
-  if (source.length >= minTotal) return source.slice(0, cap);
-  const out: HomeListing[] = [];
-  while (out.length < cap) {
-    for (const item of source) {
-      out.push(item);
-      if (out.length >= cap) break;
-    }
-  }
-  return out;
-}
-
 export default function NewListings() {
   const [listings, setListings] = useState<HomeListing[]>([]);
   const [loading, setLoading] = useState(true);
-  const [visibleCount, setVisibleCount] = useState(30);
+  const [visibleCount, setVisibleCount] = useState(20);
 
   const applyPairs = useCallback((pairs: { id: string; data: Record<string, unknown> }[]) => {
     const sorted = sortDocPairsNewestFirst(pairs);
@@ -36,14 +23,14 @@ export default function NewListings() {
       const raw = getNewListingsFallback();
       mapped = raw.map((row) => mapProductDocToHomeListing(String(row.id ?? ''), row));
     }
-    setListings(expandList(mapped));
+    setListings(mapped.slice(0, 40));
   }, []);
 
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
       try {
-        const q = query(collection(db, 'products'), limit(200));
+        const q = query(collection(db, 'products'), limit(80));
         const snapshot = await getDocs(q);
         if (cancelled) return;
         const pairs = snapshot.docs.map((doc) => ({
@@ -56,7 +43,7 @@ export default function NewListings() {
         if (!cancelled) {
           const raw = getNewListingsFallback();
           const mapped = raw.map((row) => mapProductDocToHomeListing(String(row.id ?? ''), row));
-          setListings(expandList(mapped));
+          setListings(mapped.slice(0, 40));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -152,7 +139,7 @@ export default function NewListings() {
               <div className="mt-8 text-center">
                 <button
                   type="button"
-                  onClick={() => setVisibleCount((prev) => prev + 30)}
+                  onClick={() => setVisibleCount((prev) => prev + 20)}
                   className="px-8 py-2.5 rounded-full text-sm font-medium bg-[#8b5cf6] text-white hover:bg-[#7c3aed] transition-colors"
                 >
                   + Daha fazla yeni ilan göster

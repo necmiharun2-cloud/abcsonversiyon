@@ -19,7 +19,7 @@ export default function ShowcaseListings() {
     const vitrinOnly = sorted.filter(
       ({ data }) => isVitrinProduct(data) && !isServerTanitimCategory(data.category)
     );
-    setListings(vitrinOnly.map(({ id, data }) => mapProductDocToHomeListing(id, data)));
+    setListings(vitrinOnly.map(({ id, data }) => mapProductDocToHomeListing(id, data)).slice(0, 24));
   }, []);
 
   useEffect(() => {
@@ -28,7 +28,7 @@ export default function ShowcaseListings() {
 
     const run = async () => {
       try {
-        const q = query(collection(db, 'products'), limit(200));
+        const q = query(collection(db, 'products'), limit(80));
         const snapshot = await Promise.race([
           getDocs(q),
           new Promise<never>((_, reject) =>
@@ -129,6 +129,7 @@ export default function ShowcaseListings() {
                   <img
                     src={listing.image}
                     alt={listing.title}
+                    loading="lazy"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                 </div>
