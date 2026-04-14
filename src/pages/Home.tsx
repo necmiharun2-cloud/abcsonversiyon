@@ -2,6 +2,7 @@ import HeroSection from '../components/HeroSection';
 import PopularCategories from '../components/PopularCategories';
 import ShowcaseListings from '../components/ShowcaseListings';
 import ServerListings from '../components/ServerListings';
+import HomeBuyListings from '../components/HomeBuyListings';
 import NewListings from '../components/NewListings';
 import StoriesStrip from '../components/StoriesStrip';
 import DealsSection from '../components/DealsSection';
@@ -42,6 +43,9 @@ export default function Home() {
 
           {/* Server Listings */}
           <ServerListings />
+
+          {/* Home Buy Listings */}
+          <HomeBuyListings />
         </div>
 
         {/* Sidebar (Right ~25%) */}

@@ -33,7 +33,7 @@ import Favorites from './pages/Favorites';
 import OrderDetail from './pages/OrderDetail';
 import Withdraw from './pages/Withdraw';
 import Support from './pages/Support';
-import ForgotPassword from './pages/ForgotPassword';
+import ForgotPassword from './pages/ForgotPasswordFixed';
 import NotFound from './pages/NotFound';
 import About from './pages/About';
 import Terms from './pages/Terms';

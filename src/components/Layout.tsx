@@ -14,6 +14,7 @@ import { sendEmailVerification, signOut } from 'firebase/auth';
 import { auth } from '../firebase';
 import { useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function Layout() {
   const { user, profile, loading } = useAuth();
@@ -73,7 +74,18 @@ export default function Layout() {
                     if (!user) return;
                     setVerifyBusy(true);
                     try {
-                      await sendEmailVerification(user);
+                      await sendEmailVerification(user, {
+                        url: `${window.location.origin}/login?emailVerified=1`,
+                        handleCodeInApp: false,
+                      });
+                      toast.success('Doğrulama e-postası gönderildi. Gelen kutunuzu kontrol edin.');
+                    } catch (e: any) {
+                      const code = String(e?.code || '');
+                      if (code === 'auth/too-many-requests') {
+                        toast.error('Çok sık deneme yapıldı. Lütfen biraz sonra tekrar deneyin.');
+                      } else {
+                        toast.error('Doğrulama e-postası gönderilemedi. Firebase Auth ayarlarını kontrol edin.');
+                      }
                     } finally {
                       setVerifyBusy(false);
                     }

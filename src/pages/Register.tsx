@@ -132,7 +132,10 @@ export default function Register() {
       }
 
       // Send email verification (best-effort)
-      void sendEmailVerification(user).catch(() => {});
+      void sendEmailVerification(user, {
+        url: `${window.location.origin}/login?emailVerified=1`,
+        handleCodeInApp: false,
+      }).catch(() => {});
 
       toast.success('Kayıt başarılı! E-posta doğrulaması gerekli. Yönlendiriliyorsunuz...');
       navigate('/', { replace: true, state: { authTransition: true } });
